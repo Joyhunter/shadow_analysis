@@ -34,31 +34,37 @@ struct ShdwImgInfo
 class Metric
 {
 public:
-	virtual ShdwImgInfo AnalysisShadow(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, int histN = 20) = 0;
-	virtual void ComputeInfoParam(vector<cvS>& vShdw, vector<cvS>& vNonShdw, ShdwImgInfo& info) = 0;
+	virtual ShdwImgInfo AnalysisShadow(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, 
+		int histN = 20, int patchRadius = 7) = 0;
 
-	ShdwImgInfo AnalysisShadowFrame(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, int histN);
+	ShdwImgInfo AnalysisShadowBase(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, int histN, 
+		int patchRadius, vector<bool>& useGain, vector<bool>& useBias, int cSpaceType, int cSpaceType2);
+	void ComputeInfoParam(vector<cvS>& vShdw, vector<cvS>& vNonShdw, ShdwImgInfo& info,
+		vector<bool>& useGain, vector<bool>& useBias, int cSpaceType2);
 };
 
-class RGBBiasMetric : public Metric
+class RGBGainMetric : public Metric
 {
 public:
-	ShdwImgInfo AnalysisShadow(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, int histN = 20);
-	void ComputeInfoParam(vector<cvS>& vShdw, vector<cvS>& vNonShdw, ShdwImgInfo& info);
+	ShdwImgInfo AnalysisShadow(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, int histN = 20, int patchRadius = 7);
 };
 
 class HLSGainMetric : public Metric
 {
 public:
-	ShdwImgInfo AnalysisShadow(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, int histN = 20);
-	void ComputeInfoParam(vector<cvS>& vShdw, vector<cvS>& vNonShdw, ShdwImgInfo& info);
+	ShdwImgInfo AnalysisShadow(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, int histN = 20, int patchRadius = 7);
 };
 
 class RGBBiasGainMetric : public Metric
 {
 public:
-	ShdwImgInfo AnalysisShadow(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, int histN = 20);
-	void ComputeInfoParam(vector<cvS>& vShdw, vector<cvS>& vNonShdw, ShdwImgInfo& info);
+	ShdwImgInfo AnalysisShadow(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, int histN = 20, int patchRadius = 7);
+};
+
+class LABGainMetric : public Metric
+{
+public:
+	ShdwImgInfo AnalysisShadow(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, int histN = 20, int patchRadius = 7);
 };
 
 
