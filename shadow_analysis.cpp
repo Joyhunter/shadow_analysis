@@ -56,7 +56,7 @@ ShdwImgInfo Metric::AnalysisShadowBase(const cvi* _imgShdw, const cvi* _imgNonSh
 }
 
 //bias && gain : unshadow = (shadow - avgSh) / gain + avgSh + bias;  gain: 0.1~1~10 bias: 0~255
-//!bias&& gain : unshadow = shadow / gain; gain: 0.1~1~10
+//!bias&& gain : unshadow = shadow / gain; gain: 0~1
 //bias &&!gain : unshadow = shadow + bias; bias: -255~255
 //!bias&&!gain : unshadow = shadow;
 void Metric::ComputeInfoParam(vector<cvS>& _vShdw, vector<cvS>& _vNonShdw, ShdwImgInfo& info,
@@ -73,12 +73,12 @@ void Metric::ComputeInfoParam(vector<cvS>& _vShdw, vector<cvS>& _vNonShdw, ShdwI
 		avgShdw += (*vShdw)[i]; avgUnShdw += (*vNonShdw)[i];
 	}
 	avgShdw /= N; avgUnShdw /= N;
-	if(cvSD(avgShdw) > cvSD(avgUnShdw))
-	{
-		vShdw = &_vNonShdw;
-		vNonShdw = &_vShdw;
-		swap(avgShdw, avgUnShdw);
-	}
+// 	if(cvSD(avgShdw) > cvSD(avgUnShdw))
+// 	{
+// 		vShdw = &_vNonShdw;
+// 		vNonShdw = &_vShdw;
+// 		swap(avgShdw, avgUnShdw);
+// 	}
 	doFv(i, (*vShdw))
 	{
 		sigShdw += sqr((*vShdw)[i] - avgShdw);
@@ -107,8 +107,8 @@ void Metric::ComputeInfoParam(vector<cvS>& _vShdw, vector<cvS>& _vNonShdw, ShdwI
 		if(useGain[k] && !useBias[k])
 		{
 			gain = avgShdw.val[k] / avgUnShdw.val[k];
-			//gainIdx = clamp(_i floor(gain*histN), 0, histN-1);
-			gainIdx = clamp(_i floor((log(gain) + log(maxGain)) / 2 / log(maxGain) * histN), 0, histN-1);
+			gainIdx = clamp(_i floor(gain*histN), 0, histN-1);
+			//gainIdx = clamp(_i floor((log(gain) + log(maxGain)) / 2 / log(maxGain) * histN), 0, histN-1);
 		}
 		if(!useGain[k] && useBias[k])
 		{
@@ -189,7 +189,7 @@ ShdwImgInfo RGBGainMetric::AnalysisShadow(const cvi* imgShdw, const cvi* imgNonS
 ShdwImgInfo HLSGainMetric::AnalysisShadow(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, int histN, int patchRadius)
 {
 	vector<bool> useGain(3, false), useBias(3, true);
-	useGain[1] = true; useBias[0] = true; useBias[2] = true;
+	useGain[1] = true; //useBias[0] = false; useBias[2] = false;
 	return AnalysisShadowBase(imgShdw, imgNonShdw, imgShdwMask, histN, patchRadius, useGain, useBias, 
 		CV_BGR2HLS_FULL, CV_HLS2BGR_FULL);
 }
@@ -208,7 +208,7 @@ ShdwImgInfo RGBBiasGainMetric::AnalysisShadow(const cvi* imgShdw, const cvi* img
 //L(gain bias)A(bias)B(bias)
 ShdwImgInfo LABGainMetric::AnalysisShadow(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, int histN, int patchRadius)
 {
-	vector<bool> useGain(3, false), useBias(3, true);
+	vector<bool> useGain(3, false), useBias(3, false);
 	useGain[0] = true; useBias[1] = true; useBias[2] = true;
 	return AnalysisShadowBase(imgShdw, imgNonShdw, imgShdwMask, histN, patchRadius, useGain, useBias, 
 		CV_BGR2Lab, CV_Lab2BGR);
@@ -235,7 +235,7 @@ void ShdwAnlysisProc::ShdwAnlysis()
 	HLSGainMetric metric2;
 	RGBBiasGainMetric metric3;
 	LABGainMetric metric4;
-	Metric* metric = &metric2;
+	Metric* metric = &metric4;
 	int histN = 128;
 	float resizeRatio = 0.4f;
 	int patchRadius = 7;
@@ -306,7 +306,7 @@ cvi* ShdwAnlysisProc::VislzDstrbt(vector<vector<int> >& dstrbt, int nPixels)
 			cvS color = cvs(0, 0, 255);
 			if(k == 1) color = cvs(0, 255, 0);
 			if(k == 2) color = cvs(255, 0, 0);
-			color = color * i / histN;
+			//color = color * i / histN;
 			int h = clamp(showHRatio * dstrbt[k][i] * histHeight / nPixels, 0, histHeight-gap);
 			cvRectangle(img, cvPoint(i*histWidth + gap, histHeight-h+k*histHeight),
 				cvPoint((i+1)*histWidth - gap, histHeight+k*histHeight), color, -1);

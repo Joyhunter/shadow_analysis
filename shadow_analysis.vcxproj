@@ -78,11 +78,17 @@
     <None Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\shadow_removal\gpm_proc.h" />
+    <ClInclude Include="..\shadow_removal\img_container.h" />
+    <ClInclude Include="gpm_analysis.h" />
     <ClInclude Include="shadow_analysis.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\shadow_removal\gpm_proc.cpp" />
+    <ClCompile Include="..\shadow_removal\img_container.cpp" />
+    <ClCompile Include="gpm_analysis.cpp" />
     <ClCompile Include="shadow_analysis_main.cpp" />
     <ClCompile Include="shadow_analysis.cpp" />
     <ClCompile Include="stdafx.cpp">

@@ -27,6 +27,15 @@
     <ClInclude Include="shadow_analysis.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\shadow_removal\gpm_proc.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="gpm_analysis.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shadow_removal\img_container.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -36,6 +45,15 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="shadow_analysis.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shadow_removal\gpm_proc.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="gpm_analysis.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shadow_removal\img_container.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
