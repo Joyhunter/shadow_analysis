@@ -89,6 +89,7 @@
     <ClCompile Include="..\shadow_removal\gpm_proc.cpp" />
     <ClCompile Include="..\shadow_removal\img_container.cpp" />
     <ClCompile Include="gpm_analysis.cpp" />
+    <ClCompile Include="gpm_vote_analysis.cpp" />
     <ClCompile Include="shadow_analysis_main.cpp" />
     <ClCompile Include="shadow_analysis.cpp" />
     <ClCompile Include="stdafx.cpp">
