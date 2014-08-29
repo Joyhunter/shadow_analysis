@@ -36,6 +36,15 @@
     <ClInclude Include="..\shadow_removal\img_container.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="recovery_proc.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shadow_removal\decmps_proc.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shadow_removal\mrf_proc.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -57,6 +66,15 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="gpm_vote_analysis.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="recovery_proc.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shadow_removal\decmps_proc.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shadow_removal\mrf_proc.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

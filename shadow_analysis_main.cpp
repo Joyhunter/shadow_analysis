@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "shadow_analysis.h"
 #include "gpm_analysis.h"
+#include "recovery_proc.h"
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -11,10 +12,16 @@ int _tmain(int argc, _TCHAR* argv[])
 // 	//proc.GetStatistics();
 // 	return 0;
 
-	GPMAnalysisProc gProc;
-	gProc.SetFileDir("..//dataset//gpmAnalysis//2//");
-	//gProc.ShdwAnlysis();
-	gProc.VoteAnalysis();
+// 	GPMAnalysisProc gProc;
+// 	//gProc.SetFileDir("..//dataset//gpmAnalysis//2//");
+// 	gProc.SetFileDir(".//");
+// 	gProc.ShdwAnlysis();
+// 	//gProc.VoteAnalysis();
+// 	return 0;
+
+	RecoverProc rProc;
+	rProc.SetFileDir("..//dataset//gpmAnalysis//3//");
+	rProc.Recover();
 
 
 	return 0;

@@ -54,21 +54,21 @@ void GPMAnalysisProc::ShdwAnlysis()
 
 	//ReadParam();
 
-	if(1)
-	{
-		//RunGPMForAllImages(); return;
+// 	if(1)
+// 	{
+// 		//RunGPMForAllImages(); return;
+// 
+// 		ofstream fout("sta.txt");
+// 		doF(i, 128)
+// 		{
+// 			cout<<"\r"<<i;
+// 			param.distThres = _f 2 * i;
+// 			GetStatistics(fout);
+// 		}
+// 		fout.close();
+// 	}
 
-		ofstream fout("sta.txt");
-		doF(i, 128)
-		{
-			cout<<"\r"<<i;
-			param.distThres = _f 2 * i;
-			GetStatistics(fout);
-		}
-		fout.close();
-	}
-
-	//test(); return;
+	test(); return;
 
 // 	VoteInitMask(); return;
 // 	ofstream fout2("voteError.txt");
@@ -94,14 +94,17 @@ void GPMAnalysisProc::test()
 	fin>>param.extraLevelN;
 	fin>>param.distThres;
 	fin.close();
-	//VoteInitMask(); return;
+	wMkDir(m_fileDir + parVoteDir);
+	//VoteInitMask(); GetVoteError(); pause; return;
 	ofstream fout2("voteError.txt");
 	doF(i, 40)
 	{
+		if(2*i < param.distThres) continue;
 		cout<<"\r"<<i*2;
 		param.distThres = _f 2 * i;
 		VoteInitMask(); 
-		fout2<<GetVoteError()<<endl;
+		cvS res = GetVoteError();
+		fout2<<res.val[0]<<" "<<res.val[1]<<" "<<res.val[2]<<endl;
 	}
 	fout2.close();
 
@@ -342,10 +345,10 @@ void GPMAnalysisProc::VoteInitMask()
 	cout<<"\rVoting complete.\n";
 }
 
-double GPMAnalysisProc::GetVoteError()
+cvS GPMAnalysisProc::GetVoteError()
 {
 	cout<<"Begin calculating voting error using GTParam and VoteParam...\n";
-	double allError = 0;
+	cvS allError = cvs(0, 0, 0);
 	doFv(i, m_imgNames)
 	{
 		if(m_imgNames[i][m_imgNames[i].size()-5] == 'n') continue;
@@ -354,30 +357,38 @@ double GPMAnalysisProc::GetVoteError()
 
 		string voteResDirLGain = m_fileDir + parVoteDir + imgPrefix + "_0_gain.txt";
 		string gtResDirLGain = m_fileDir + parGTDir + imgPrefix + "_0_gain.txt";
+		string voteResDirABias = m_fileDir + parVoteDir + imgPrefix + "_1_bais.txt";
+		string gtResDirABias = m_fileDir + parGTDir + imgPrefix + "_1_bais.txt";
+		string voteResDirBBias = m_fileDir + parVoteDir + imgPrefix + "_2_bais.txt";
+		string gtResDirBBias = m_fileDir + parGTDir + imgPrefix + "_2_bais.txt";
 
-		double sumError = 0;
+		cvS sumError = cvs(0, 0, 0);
 		ifstream fin(voteResDirLGain.c_str()), fin2(gtResDirLGain.c_str());
+		ifstream fin3(voteResDirABias.c_str()), fin4(gtResDirABias.c_str());
+		ifstream fin5(voteResDirBBias.c_str()), fin6(gtResDirBBias.c_str());
 		int w, h, w2, h2;
-		fin>>w>>h; fin2>>w2>>h2;
+		fin3>>w>>h; fin4>>w>>h; fin5>>w>>h; fin6>>w>>h; fin>>w>>h; fin2>>w2>>h2; 
 		if(w != w2 || h != h2)
 		{
 			cout<<"Error!"<<endl;
 		}
 		else
 		{
-			double v1, v2;
+			double v1, v2, v3, v4, v5, v6;
 			doF(k, w*h)
 			{
-				fin>>v1; fin2>>v2;
-				sumError += abs(v1 - v2);
+				fin>>v1; fin2>>v2; fin3>>v3; fin4>>v4; fin5>>v5; fin6>>v6;
+				sumError += cvs(abs(v1 - v2), abs(v3-v4), abs(v5-v6));
 			}
 			sumError /= w*h;
 		}
 		fin.close(); fin2.close();
 		allError += sumError;
 	}
-	cout<<"\rVote Error computing complete, vote error = "<<allError / m_imgNames.size()<<".\n";
-	return allError / m_imgNames.size();
+	allError /= m_imgNames.size() / 2;
+	cout<<"\rVote Error computing complete, vote error = "<<allError.val[0]<<" "<<allError.val[1]<<" "
+		<<allError.val[2]<<".\n";
+	return allError;
 }
 
 double GPMAnalysisProc::OptimizeGbVLab(Patch& srcPatch, Patch& dstPatch, vector<double>& gbV, double& dist)
@@ -397,9 +408,9 @@ double GPMAnalysisProc::OptimizeGbVLab(Patch& srcPatch, Patch& dstPatch, vector<
 	gbV[0] = srcAvg.val[0] / dstAvg.val[0];
 	gbV[1] = 0;
 	gbV[2] = 1;
-	gbV[3] = srcAvg.val[1] - dstAvg.val[1];
+	gbV[3] = - srcAvg.val[1] + dstAvg.val[1];
 	gbV[4] = 1;
-	gbV[5] = srcAvg.val[2] - dstAvg.val[2];
+	gbV[5] = - srcAvg.val[2] + dstAvg.val[2];
 
 	cvS gain = cvs(gbV[0], gbV[2], gbV[4]);
 	cvS bias = cvs(gbV[1], gbV[3], gbV[5]);

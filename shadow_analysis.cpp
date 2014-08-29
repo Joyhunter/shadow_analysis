@@ -166,12 +166,12 @@ ShdwImgInfo Metric::AnalysisShadowBase(const cvi* _imgShdw, const cvi* _imgNonSh
 	{
 		if(cvg20(mask, i, j) > 128)
 		{
-			doF(k, 3)
-			{
-				gbVs[(i*mask->width+j)*6+2*k] = 1;
-				gbVs[(i*mask->width+j)*6+2*k+1] = 0;
-			}
-			continue;
+// 			doF(k, 3)
+// 			{
+// 				gbVs[(i*mask->width+j)*6+2*k] = 1;
+// 				gbVs[(i*mask->width+j)*6+2*k+1] = 0;
+// 			}
+// 			continue;
 		}
 		info.nPixels++;
 
@@ -374,7 +374,7 @@ ShdwImgInfo RGBBiasGainMetric::AnalysisShadow(const cvi* imgShdw, const cvi* img
 ShdwImgInfo LABGainMetric::AnalysisShadow(const cvi* imgShdw, const cvi* imgNonShdw, const cvi* imgShdwMask, 
 	OUT vector<double>& gbVs, int histN, int patchRadius)
 {
-	vector<bool> useGain(3, false), useBias(3, true);
+	vector<bool> useGain(3, false), useBias(3, false);
 	useGain[0] = true; useBias[1] = true; useBias[2] = true;
 	return AnalysisShadowBase(imgShdw, imgNonShdw, imgShdwMask, histN, patchRadius, useGain, useBias, 
 		CV_BGR2Lab, CV_Lab2BGR, gbVs);
@@ -404,6 +404,25 @@ void ShdwAnlysisProc::AddFileDir(string fileDir)
 	m_fileDirs.push_back(fileDir);
 }
 
+string parGTDir = "GTParam1//";
+string shaStaDir = "shadow_analysis//";
+int histN = 512;
+float resizeRatio = 1.0f/3.0f;
+int patchRadius = 7;
+float minMaxRatio = 0.49f;
+
+void getParam()
+{
+	ifstream fin("gtAna.cfg");
+	fin>>parGTDir>>shaStaDir>>histN;
+	int temp;
+	fin>>temp;
+	resizeRatio = 1.0f / _f temp;
+	fin>>patchRadius;
+	fin>>minMaxRatio;
+	fin.close();
+}
+
 void ShdwAnlysisProc::BunchShdwAnalysis()
 {
 	RGBGainMetric metric1;
@@ -412,10 +431,8 @@ void ShdwAnlysisProc::BunchShdwAnalysis()
 	LABGainMetric metric4;
 	RGBRatioMetric metric5;
 	Metric* metric = &metric4;
-	int histN = 512;
-	float resizeRatio = 1.0f/3.0f;
-	int patchRadius = 7;
-	float minMaxRatio = 0.49f;
+
+	getParam();
 
 	ShdwImgInfo sumInfo(histN);
 	doFv(k, m_fileDirs)
@@ -425,23 +442,25 @@ void ShdwAnlysisProc::BunchShdwAnalysis()
 		sumInfo += info;
 	}
 	cout<<"----------------Overall---------------\n";
-	sumInfo.computeMinMax(minMaxRatio);
-	sumInfo.outputMinMax();
-	cvi* res = VislzDstrbt(sumInfo.biasDstrbt, sumInfo.nPixels);
-	cvsi("sum_bias.png", res);
-	cvri(res);
-	cvi* res2 = VislzDstrbt(sumInfo.gainDstrbt, sumInfo.nPixels);
-	cvsi("sum_gain.png", res2);
-	cvri(res2);
-	cout<<"Image number: "<<sumInfo.nImages<<endl;
-	cout<<"Avg patch error per image: "<<sumInfo.asmptDist/sumInfo.nImages<<endl;
-	cout<<"\rDone.";
+// 	sumInfo.computeMinMax(minMaxRatio);
+// 	sumInfo.outputMinMax();
+// 	cvi* res = VislzDstrbt(sumInfo.biasDstrbt, sumInfo.nPixels);
+// 	cvsi("sum_bias.png", res);
+// 	cvri(res);
+// 	cvi* res2 = VislzDstrbt(sumInfo.gainDstrbt, sumInfo.nPixels);
+// 	cvsi("sum_gain.png", res2);
+// 	cvri(res2);
+// 	cout<<"Image number: "<<sumInfo.nImages<<endl;
+// 	cout<<"Avg patch error per image: "<<sumInfo.asmptDist/sumInfo.nImages<<endl;
+// 	cout<<"\rDone.";
 }
 
 ShdwImgInfo ShdwAnlysisProc::ShdwAnlysis(string fileDir, IN int histN, IN float resizeRatio, IN int patchRadius,
 	IN float minMaxRatio, IN Metric* metric)
 {
 	wGetDirFiles(fileDir + "*_n.png", m_imgNames);
+	wMkDir(fileDir + parGTDir);
+	//wMkDir(fileDir + shaStaDir);
 
 	ShdwImgInfo sumInfo(histN);
 	vector<ShdwImgInfo> info(m_imgNames.size(), histN);
@@ -450,7 +469,7 @@ ShdwImgInfo ShdwAnlysisProc::ShdwAnlysis(string fileDir, IN int histN, IN float 
 #pragma omp parallel for
 	doF(i, _i m_imgNames.size())
 	{
-		//cout<<"\rProcessing "<<m_imgNames[i]<<"..";
+		cout<<"\rProcessing "<<m_imgNames[i]<<"..";
 		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 6);
 		string imgShdwDir = fileDir + imgPrefix + ".png";
 		string imgUnShdwDir = fileDir + imgPrefix + "_n.png";
@@ -469,24 +488,23 @@ ShdwImgInfo ShdwAnlysisProc::ShdwAnlysis(string fileDir, IN int histN, IN float 
 		//info[i] = metric3.AnalysisShadow(imgShdw, imgNonShdw, imgShdwMask, histN);
 		info[i].nImages = 1;
 
-// 		string parGTDir = "GTParam1//";
-// 		doF(k, 3)
-// 		{
-// 			cvi* v1 = VislzVector(i1->width, i1->height, gbVs, 2*k, 0, 1);
-// 			cvsi(fileDir + parGTDir + imgPrefix + "_" + toStr(k) + "_gain.png", v1);
-// 			cvi* v2 = VislzVector(i1->width, i1->height, gbVs, 2*k+1, -100, 100);
-// 			cvsi(fileDir + parGTDir + imgPrefix + "_" + toStr(k) + "_bias.png", v2);
-// 			cvri(v1); cvri(v2);
-// 			SaveVector(i1->width, i1->height, gbVs, 2*k, fileDir + parGTDir + imgPrefix + "_" + toStr(k) + "_gain.txt");
-// 			SaveVector(i1->width, i1->height, gbVs, 2*k+1, fileDir + parGTDir + imgPrefix + "_" + toStr(k) + "_bais.txt");
-// 		}
+		doF(k, 3)
+		{
+			cvi* v1 = VislzVector(i1->width, i1->height, gbVs, 2*k, 0, 1);
+			cvsi(fileDir + parGTDir + imgPrefix + "_" + toStr(k) + "_gain.png", v1);
+			cvi* v2 = VislzVector(i1->width, i1->height, gbVs, 2*k+1, -100, 100);
+			cvsi(fileDir + parGTDir + imgPrefix + "_" + toStr(k) + "_bias.png", v2);
+			cvri(v1); cvri(v2);
+			SaveVector(i1->width, i1->height, gbVs, 2*k, fileDir + parGTDir + imgPrefix + "_" + toStr(k) + "_gain.txt");
+			SaveVector(i1->width, i1->height, gbVs, 2*k+1, fileDir + parGTDir + imgPrefix + "_" + toStr(k) + "_bais.txt");
+		}
 
-		cvi* res = VislzDstrbt(info[i].biasDstrbt, info[i].nPixels);
-		cvsi(fileDir + "shadow_analysis//" + imgPrefix + "_bias.png", res);
-		cvri(res);
-		cvi* res2 = VislzDstrbt(info[i].gainDstrbt, info[i].nPixels);
-		cvsi(fileDir + "shadow_analysis//" + imgPrefix + "_gain.png", res2);
-		cvri(res2);
+// 		cvi* res = VislzDstrbt(info[i].biasDstrbt, info[i].nPixels);
+// 		cvsi(fileDir + shaStaDir + imgPrefix + "_bias.png", res);
+// 		cvri(res);
+// 		cvi* res2 = VislzDstrbt(info[i].gainDstrbt, info[i].nPixels);
+// 		cvsi(fileDir + shaStaDir + imgPrefix + "_gain.png", res2);
+// 		cvri(res2);
 
 		cvri(imgShdw); cvri(imgNonShdw); cvri(imgShdwMask); cvri(i1); cvri(i2); cvri(i3);
 		cout<<m_imgNames[i]<<": "<<info[i].nPixels<<" pixels, avg Patch error = "<<info[i].asmptDist<<"."<<endl;
@@ -495,16 +513,32 @@ ShdwImgInfo ShdwAnlysisProc::ShdwAnlysis(string fileDir, IN int histN, IN float 
 		info[i].outputMinMax();
 	}
 	doFv(k, info) sumInfo += info[k];
-	sumInfo.computeMinMax(minMaxRatio);
+	//sumInfo.computeMinMax(minMaxRatio);
 
 	cvi* res = VislzDstrbt(sumInfo.biasDstrbt, sumInfo.nPixels);
-	cvsi(fileDir + "shadow_analysis//sum_bias.png", res);
+	cvsi(fileDir + shaStaDir + "sum_bias.png", res);
 	cvri(res);
 	cvi* res2 = VislzDstrbt(sumInfo.gainDstrbt, sumInfo.nPixels);
-	cvsi(fileDir + "shadow_analysis//sum_gain.png", res2);
+	cvsi(fileDir + shaStaDir + "sum_gain.png", res2);
 	cvri(res2);
 	cout<<"Image number: "<<sumInfo.nImages<<endl;
 	cout<<"Avg patch error per image: "<<sumInfo.asmptDist/sumInfo.nImages<<endl;
+
+	//output distribution statistics
+	string rangeDir = fileDir + shaStaDir + "range.txt";
+	ofstream fout(rangeDir.c_str());
+	doF(k, 51)
+	{
+		sumInfo.computeMinMax(k*0.01f);
+		fout<<k*0.01<<":\n";
+		doF(k, 3)
+		{
+			if(sumInfo.useBias[k]) fout<<"Channel "<<k<<" bias: ("<<sumInfo.biasMin[k]<<", "<<sumInfo.biasMax[k]<<").\n";
+			if(sumInfo.useGain[k]) fout<<"Channel "<<k<<" gain: ("<<sumInfo.gainMin[k]<<", "<<sumInfo.gainMax[k]<<").\n";
+		}
+	}
+	fout.close();
+	pause;
 
 	return sumInfo;
 }
@@ -581,6 +615,35 @@ cvi* ShdwAnlysisProc::VislzDstrbt(vector<vector<int> >& dstrbt, int nPixels)
 		}
 	}
 	return img;
+}
+
+cvi* ShdwAnlysisProc::VislzFCvi(int width, int height, cvi* src, int ch, double minV, double maxV)
+{
+	cvi* res = cvci81(width, height);
+	doFcvi(res, i, j)
+	{
+		double v = cvg2(src, i, j).val[ch];
+		v = (v - minV) / (maxV - minV) * 255;
+		cvs20(res, i, j, v);
+	}
+	return res;
+}
+
+void ShdwAnlysisProc::SaveFCvi(int width, int height, cvi* src, int ch, string fileDir)
+{
+	ofstream fout(fileDir.c_str());
+	fout<<width<<" "<<height<<endl;
+	doF(i, height)
+	{
+		//cout<<"\r"<<i<<" ";
+		doF(j, width)
+		{ 
+			double v = cvg2(src, i, j).val[ch];
+			if(fequal(_f v, 0.f)) v = 0;
+			fout<<v<<" ";
+		}
+	}
+	fout.close();
 }
 
 cvi* ShdwAnlysisProc::VislzVector(int width, int height, vector<double>& vs, int offset, double minV, double maxV)

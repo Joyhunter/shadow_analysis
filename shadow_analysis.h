@@ -125,6 +125,10 @@ public:
 	static cvi* VislzVector(int width, int height, vector<double>& vs, int offset, double minV, double maxV);
 	static void SaveVector(int width, int height, vector<double>& vs, int offset, string fileDir);
 
+	static cvi* VislzFCvi(int width, int height, cvi* src, int ch, double minV, double maxV);
+	static void SaveFCvi(int width, int height, cvi* src, int ch, string fileDir);
+
+
 private:
 
 	ShdwImgInfo ShdwAnlysis(string fileDir, IN int histN, IN float resizeRatio, IN int patchRadius,

@@ -13,6 +13,20 @@ struct GPMParam
 	float distThres;
 };
 
+struct RTparam
+{
+	int matchNPerPatch;
+	int sampleStep;
+	int max_depth;
+	int min_sample_count;
+	float reggression_accurancy;
+	int max_categories;
+	int nactive_vars;
+	int max_tree_N;
+	float forest_accurancy;
+	float forest_accurancyAB;
+};
+
 struct GPMStatis
 {
 	int matchN; //all matches
@@ -70,6 +84,8 @@ public:
 	//learn to predict
 	void VoteAnalysis();
 
+	static cvi* LoadGTFile(string gtDir, string imgPrefix);
+
 private:
 
 	void RunGPMForAllImages();
@@ -78,7 +94,7 @@ private:
 
 	void VoteInitMask();
 	double OptimizeGbVLab(Patch& srcPatch, Patch& dstPatch, vector<double>& gbV, double& dist);
-	double GetVoteError();
+	cvS GetVoteError();
 
 	void ReadParam();
 
@@ -86,7 +102,8 @@ private:
 	
 	//vote learning
 	void TrainVoteRTrees();
-	cvi* LoadGTFile(string gtDir, string imgPrefix);
+	void PredictUseRTrees();
+	void InitRTParam();
 
 
 	string GetCorrFileDir(string imgName);
@@ -104,5 +121,9 @@ private:
 	string rangeDir;
 	string parVoteDir;
 	string parGTDir;
+
+	//rt param
+	RTparam rtParam;
+	string parPredictDir;
 };
 
