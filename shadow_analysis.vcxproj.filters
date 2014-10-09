@@ -45,6 +45,12 @@
     <ClInclude Include="..\shadow_removal\mrf_proc.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="synthesis_proc.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -77,5 +83,13 @@
     <ClCompile Include="..\shadow_removal\mrf_proc.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="synthesis_proc.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="shadow_analysis.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>

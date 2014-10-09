@@ -2,10 +2,24 @@
 #include "shadow_analysis.h"
 #include "gpm_analysis.h"
 #include "recovery_proc.h"
+#include "synthesis_proc.h"
 
 int _tmain(int argc, _TCHAR* argv[])
 {
 	
+// 	cvi* test = cvlic("316__v2.png");
+// 	
+// 	cvi* src2 = cvci81(test);
+// 
+// 	doFcvi(test, i, j)
+// 	{
+// 		cvs20(src2, i, j, cvg20(test, i, j));
+// 	}
+// 
+// 	cvsi("316__v2.png", src2);
+// 	return 0;
+
+
 //     ShdwAnlysisProc proc;
 //  	proc.AddFileDir(".//");
 //  	proc.BunchShdwAnalysis();
@@ -19,9 +33,13 @@ int _tmain(int argc, _TCHAR* argv[])
 // 	//gProc.VoteAnalysis();
 // 	return 0;
 
-	RecoverProc rProc;
-	rProc.SetFileDir("..//dataset//gpmAnalysis//3//");
-	rProc.Recover();
+	SynthesisProc sProc;
+	sProc.Test();
+
+// 	RecoverProc rProc;
+// 	rProc.SetFileDir("..//dataset//gpmAnalysis//3//");
+// 	//rProc.Recover();
+// 	rProc.Recover2();
 
 
 	return 0;
