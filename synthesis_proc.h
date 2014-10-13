@@ -12,6 +12,32 @@ struct InputImageData
 
 class DenseCorrSyn;
 
+struct SynthesisCfg
+{
+	int patchSize; // 7
+
+	//synthesis
+	float pymResizeRatio; // 0.5
+	int pymLevels; // 5
+	int cpltItrN; // 2
+	float poissonAlpha; // 0.1
+
+	//gpm
+	int gpmItrN; // 2
+	bool hFlipEnabled; // true
+	bool vFlipEnabled; // true
+	bool scaleRotateEnabled; // false
+	bool gainBiasEnabled; // false
+	bool randomSearchEnabled; // true
+	float randomSearchScaleFactor; // 0.5
+	float randomSearchRadius; // 0.1 0.2
+
+	//feature
+	float guideImgWeight; // 0.0
+
+	void Init();
+};
+
 class SynthesisProc
 {
 
@@ -24,12 +50,15 @@ public:
 
 	void Test();
 
+	static SynthesisCfg cfg;
+
 private:
 
 	void VoteToCompletion(DenseCorrSyn* dsCor, InputImageData& imageData, cvi* resImg, int patchSize, float gradientAlpha = 1);	
 
 	void PossionSolve(cvi* srcImg, cvi* holeImg, cvi* resImg, cvi* resConstrain, 
 		cvi* gradientConstrainV, cvi* gradientConstrainH, float gradientAlpha = 1);
+
 
 };
 

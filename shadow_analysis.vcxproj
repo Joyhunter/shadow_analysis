@@ -82,7 +82,9 @@
     <ClInclude Include="..\shadow_removal\gpm_proc.h" />
     <ClInclude Include="..\shadow_removal\img_container.h" />
     <ClInclude Include="..\shadow_removal\mrf_proc.h" />
+    <ClInclude Include="detection_proc.h" />
     <ClInclude Include="gpm_analysis.h" />
+    <ClInclude Include="param_loader.h" />
     <ClInclude Include="recovery_proc.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="shadow_analysis.h" />
@@ -95,8 +97,10 @@
     <ClCompile Include="..\shadow_removal\gpm_proc.cpp" />
     <ClCompile Include="..\shadow_removal\img_container.cpp" />
     <ClCompile Include="..\shadow_removal\mrf_proc.cpp" />
+    <ClCompile Include="detection_proc.cpp" />
     <ClCompile Include="gpm_analysis.cpp" />
     <ClCompile Include="gpm_vote_analysis.cpp" />
+    <ClCompile Include="param_loader.cpp" />
     <ClCompile Include="recovery_proc.cpp" />
     <ClCompile Include="shadow_analysis_main.cpp" />
     <ClCompile Include="shadow_analysis.cpp" />

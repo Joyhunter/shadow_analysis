@@ -1,7 +1,8 @@
 #include "StdAfx.h"
 #include "recovery_proc.h"
-#include "gpm_analysis.h"
+#include "param_loader.h"
 #include "shadow_analysis.h"
+#include "synthesis_proc.h"
 #include "matrix/matrix.h"
 #pragma comment(lib, "sparsemat.lib")
 
@@ -19,8 +20,8 @@ RecoverProc::~RecoverProc(void)
 void RecoverProc::SetFileDir(string fileDir)
 {
 	m_fileDir = fileDir;
-	m_ParamDir = "PredictParam//"; // VoteParam PredictParam
-	m_ResultDir = "RecoverResult//";
+	m_ParamDir = "02_Detection//"; // VoteParam PredictParam
+	m_ResultDir = "03_Recovery//";
 	m_patchRadius = 3;
 }
 
@@ -39,71 +40,107 @@ void RecoverProc::GetScript()
 	fout.close();
 }
 
-
-void RecoverProc::Recover2()
+void RecoverProc::Recover3()
 {
 	wGetDirFiles(m_fileDir + "*_n.png", m_imgNames);
 	wMkDir(m_fileDir + m_ResultDir);
-
-	//GetScript(); return;
 
 	doFv(i, m_imgNames)
 	{
 		string fileName = m_imgNames[i];
 		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 6);
-		if(imgPrefix != "316") continue;
+		if(imgPrefix != "004") continue;
 		cout<<"Handling "<<imgPrefix<<".\n";
 
+		//load source image and param prediction
 		cvi* srcImg = cvlic(m_fileDir + imgPrefix + ".png");
-		cvi* _maskImg = cvlig(m_fileDir + m_ResultDir + imgPrefix + "_0_s2_.png");
-		cvi* maskImg = cvci81(srcImg); cvResize(_maskImg, maskImg); cvri(_maskImg);
-		//cvi* maskImg = cvlig(m_fileDir + "GTParam3//" + imgPrefix + "_0_gain.png");
-		//cvSmooth(maskImg, maskImg, 2, srcImg->width / 40, srcImg->width / 40);
-		//cvi* cpImg = cvlic(m_fileDir + m_ResultDir + "pm_cp_res//NEng_nRNG_Win_x64_Rel_8_" + imgPrefix + "res.png");
-		cvi* _cpImg = cvlic(m_fileDir + imgPrefix + "_n.png"); cvi* cpImg = cvci83(srcImg); cvResize(_cpImg, cpImg); cvri(_cpImg);
+		cvi* param = ParamLoader::LoadParamFromDir(m_fileDir + m_ParamDir, imgPrefix);
 
-		//match source with cp
-		//laplacian pyramid, only use correct completion result
-		cvS gain = cvs(0, 0, 0);
-		cvi* recoverImg = GetBestParam(srcImg, maskImg, cpImg, gain);
-		cvsi(m_fileDir + m_ResultDir + "results//" + imgPrefix + "__r1.png", recoverImg);
-		recoverImg = GetBestParamLapPymd(recoverImg, maskImg, cpImg, gain); //pause;
-		cvsi(m_fileDir + m_ResultDir + "results//" + imgPrefix + "__r2.png", recoverImg);
+		//Step 1: Get naive recovery result
+		cvi* naiveRes = ImgRecoverNaive(srcImg, param, 1);
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_naive_res.png", naiveRes);
 
-		//get boundary
-		float thres = 185;
-		float ratio1 = 0.02f, ratio2 = 0.02f;
-		if(imgPrefix == "004"){thres = 150; ratio1 = 0.01f; ratio2 = 0.04f;}
-		if(imgPrefix == "012"){ratio1 = 0.01f; ratio2 = 0.04f;}
-		if(imgPrefix == "015"){ratio1 = 0.03f; ratio2 = 0.03f;}
-// 		if(imgPrefix == "114"){thres = 210;}
-// 		if(imgPrefix == "102"){thres = 242;}
-// 		if(imgPrefix == "116") thres = 230;
-// 		if(imgPrefix == "109") thres = 220;
-// 		if(imgPrefix == "100") thres = 210;
-// 		if(imgPrefix == "307"){thres = 245; ratio1 = 0.05f; ratio2 = 0.05f;}
-		cvi* shadowBinaryMask;
-		cvi* boundMask = BoundarySmooth(srcImg, maskImg, shadowBinaryMask, 
-			thres*255, srcImg->width * ratio1, srcImg->width * ratio2);
-		cvi* boundShow = VislzBound(srcImg, boundMask);
-		cvsi(m_fileDir + m_ResultDir + imgPrefix + "__m.png", shadowBinaryMask);
-		cvsi(m_fileDir + m_ResultDir + imgPrefix + "__b_show.png", boundShow);
-		cvsi(m_fileDir + m_ResultDir + imgPrefix + "__b.png", boundMask);
-		//break;
-		
-		//poisson boundary
-		//PoissonSmooth(recoverImg, boundMask);
-		doFcvi(recoverImg, i, j) if(cvg20(boundMask, i, j) > 100) cvs2(recoverImg, i, j, cvg2(srcImg, i, j));
-		cvri(boundShow); cvri(boundMask); cvri(shadowBinaryMask);
+		//Step 2: Get Patch Synthesis result
+		SynthesisProc sProc;
+		cvi* synRes = cvci(srcImg);
+		cvi* holeMask = cvci81(srcImg), *legalMask = cvci81(srcImg);
+		GenerateMaskFromParam(param, holeMask, legalMask);
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_syn_hole.png", holeMask);
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_syn_legal.png", legalMask);
+		sProc.Synthesis(srcImg, holeMask, synRes, legalMask, naiveRes);
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_syn_res.png", synRes);
+		cvri(holeMask); cvri(legalMask);
 
-		cvsi(m_fileDir + m_ResultDir + "results//" + imgPrefix + "__r3.png", recoverImg);
+		//Step 3: Local color correction
 
-
-		cvri(srcImg); cvri(maskImg); cvri(recoverImg);
-
-
+		cvri(srcImg); cvri(param); cvri(naiveRes); cvri(synRes);
 	}
 }
+
+cvi* RecoverProc::ImgRecoverNaive(cvi* _srcImg, cvi* param, int patchSize)
+{
+	cvi* res = cvci(_srcImg);
+	cvZero(res);
+
+	cvi* paramResize = cvci323(_srcImg);
+	cvResize(param, paramResize);
+
+	cvi* srcImg = cvci(_srcImg);
+	cvCvtColor(srcImg, srcImg, CV_BGR2Lab);
+
+	//cvSmooth(paramResize, paramResize, 1, 2*m_patchRadius+1, 2*m_patchRadius+1);
+	m_patchRadius = (patchSize - 1)/2;
+
+	vector<cvS> resVec(srcImg->width * srcImg->height, cvs(0, 0, 0));
+	vector<int> counts(srcImg->width * srcImg->height, 0);
+
+	doFcvi(srcImg, i, j)
+	{
+		cvS v2 = cvg2(paramResize, i, j);
+
+		doFs(ii, -m_patchRadius, m_patchRadius+1) doFs(jj, -m_patchRadius, m_patchRadius+1)
+		{
+			if(!cvIn(i+ii, j+jj, srcImg)) continue;
+			cvS v = cvg2(srcImg, i+ii, j+jj);
+			v.val[0] /= v2.val[0];
+			v.val[1] += v2.val[1];
+			v.val[2] += v2.val[2];
+			int idx = (i+ii)*srcImg->width + j+jj;
+			resVec[idx] += v;
+			counts[idx]++;
+		}
+	}
+
+	doFcvi(srcImg, i, j)
+	{
+		int idx = (i)*srcImg->width + j;
+		cvs2(res, i, j, resVec[idx] / counts[idx]);
+	}
+
+	cvCvtColor(res, res, CV_Lab2BGR);
+	cvri(paramResize); cvri(srcImg);
+
+	return res;
+}
+
+void RecoverProc::GenerateMaskFromParam(IN cvi* param, OUT cvi* holeMask, OUT cvi* legalMask, float shadowThres, float boundW)
+{
+	cvZero(holeMask); cvZero(legalMask);
+
+	doFcvi(param, i, j)
+	{
+		if(cvg20(param, i, j) < shadowThres)
+			cvs20(holeMask, i, j, 255);
+	}
+
+	int w = param->width;
+	cvDilate(holeMask, holeMask, 0, _i(_f w*boundW));
+	doFcvi(legalMask, i, j)
+	{
+		cvs20(legalMask, i, j, 255 - cvg20(holeMask, i, j));
+	}
+}
+
 
 
 ImgPrmd::ImgPrmd(cvi* img, int levels, float ratio)
@@ -345,161 +382,7 @@ cvi* RecoverProc::GetBestParam(IN cvi* src, IN cvi* mask, IN cvi* cpImg, OUT cvS
 	return res;
 }
 
-void RecoverProc::Recover()
-{
-	wGetDirFiles(m_fileDir + "*_n.png", m_imgNames);
-	wMkDir(m_fileDir + m_ResultDir);
 
-	//GetScript(); return;
-
-	doFv(i, m_imgNames)
-	{
-		string fileName = m_imgNames[i];
-		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 6);
-		if(imgPrefix != "004") continue;
-		cout<<"Handling "<<imgPrefix<<".\n";
-
-		cvi* _srcImg = cvlic(m_fileDir + imgPrefix + ".png");
-		cvi* param = GPMAnalysisProc::LoadGTFile(m_fileDir + m_ParamDir, imgPrefix);
-
-		int resizeRatio = 1;
-		//while(1)
-		//{
-			cvi* srcImg = cvci83(_srcImg->width / resizeRatio, _srcImg->height / resizeRatio);
-			cvResize(_srcImg, srcImg);
-			//cvi* temp = cvci(srcImg);
-			//cvSmooth(temp, srcImg, CV_BILATERAL, 20, 20, 200, 200); cvri(temp);
-
-			cvsi(m_fileDir + m_ResultDir + imgPrefix + "__.png", srcImg);
-
-			//save init param
-			cvi* paramResize = cvci323(srcImg);
-			cvResize(param, paramResize);
-// 			doF(k, 3)
-// 			{
-// 				cvi* temp = ShdwAnlysisProc::VislzFCvi(srcImg->width, srcImg->height, paramResize, k, 
-// 					((k==0)?0:-100), ((k==0)?1:100));
-// 				cvsi(m_fileDir + m_ResultDir + imgPrefix + "_" + toStr(k) + "_o_" + ".png", temp); cvri(temp);
-// 			}
-			cvri(paramResize);
-
-			//mrf smoothing and quantify
-			cvi* smoothParam = MRFSmooth(srcImg, param, 16);
-			smoothParam = DecmpsSmooth(srcImg, smoothParam, 128);
-
-			//before boundary smooth save
-// 			doF(k, 3)
-// 			{
-// 				cvi* temp = ShdwAnlysisProc::VislzFCvi(srcImg->width, srcImg->height, smoothParam, k, 
-// 					((k==0)?0:-100), ((k==0)?1:100));
-// 				cvsi(m_fileDir + m_ResultDir + imgPrefix + "_" + toStr(k) + "_s1_" + ".png", temp); cvri(temp);
-// 			}
-			cvi* recoverRes = ImgRecoverNaive(srcImg, smoothParam);
-			cvsi(m_fileDir + m_ResultDir + imgPrefix + "__r1.png", recoverRes);
-
-			//boundary Smooth
-			cvi* shadowBinaryMask;
-			float lthres = 185;
-			if(imgPrefix == "114") lthres = 210;
-			if(imgPrefix == "116") lthres = 230;
-			if(imgPrefix == "109") lthres = 220;
-			if(imgPrefix == "102") lthres = 235;
-			if(imgPrefix == "100") lthres = 210;
-			//if(imgPrefix == "201") lthres = 230;
-			cvi* boundMask = BoundarySmooth(srcImg, smoothParam, shadowBinaryMask, 
-				lthres, srcImg->width * 0.02f, srcImg->width * 0.02f); //185
-			cvi* boundShow = VislzBound(recoverRes, boundMask);
-			cvsi(m_fileDir + m_ResultDir + imgPrefix + "__r2.png", boundShow);
-			cvsi(m_fileDir + m_ResultDir + imgPrefix + "__m.png", shadowBinaryMask);
-			cvri(boundShow); cvri(shadowBinaryMask);
-
-			//after boundary smooth save smooth param
-			doF(k, 3)
-			{
-				cvi* temp = ShdwAnlysisProc::VislzFCvi(srcImg->width, srcImg->height, smoothParam, k, 
-					((k==0)?0:-100), ((k==0)?1:100));
-				cvsi(m_fileDir + m_ResultDir + imgPrefix + "_" + toStr(k) + "_s2_" + ".png", temp); cvri(temp);
-			}
-			cvi* recoverRes2 = ImgRecoverNaive(srcImg, smoothParam); 
-			//cvi* recoverRes = ImgRecoverPoisson(srcImg, param);
-			cvsi(m_fileDir + m_ResultDir + imgPrefix + "__r3.png", boundMask);
-
-			//Smooth boundary lightness
-			PoissonSmooth(recoverRes2, boundMask);
-			cvsi(m_fileDir + m_ResultDir + imgPrefix + "__r4.png", recoverRes2);
-
-			cvri(param); cvri(srcImg); cvri(recoverRes); cvri(recoverRes2); cvri(boundMask);
-			param = smoothParam;
-			//resizeRatio /= 2;
-			//pause;
-		//}
-		cvri(_srcImg); cvri(param);
-	}
-}
-
-cvi* RecoverProc::MRFSmooth(cvi* srcImg, cvi* param, int nLabels)
-{
-	cvi* paramResize = cvci323(srcImg);
-	cvResize(param, paramResize);
-
-	MRFProc proc;
-
-	//cvCvtColor(srcImg, srcImg, CV_BGR2Lab);
-	//cvi* res;
-	////MRF smoothing
-	//proc.SolveWithInitialAllCh(srcImg, paramResize, 64, res);
-	//cvCvtColor(srcImg, srcImg, CV_Lab2BGR);
-	//cvri(paramResize);
-
-	cvi* mask = cvci81(paramResize);
-	doFcvi(mask, i, j)
-	{
-		cvs20(mask, i, j, cvg20(paramResize, i, j)*255);
-	}
-
-	cvi* resMask;
-	proc.SolveWithInitial(srcImg, NULL, mask, NULL, nLabels, resMask);
-
-	cvSmooth(paramResize, paramResize, 1, srcImg->width / 30, srcImg->width / 30);
-	doFcvi(mask, i, j)
-	{
-		auto v = cvg2(paramResize, i, j);
-		v.val[0] = cvg20(resMask, i, j) / 255;
-		cvs2(paramResize, i, j, v);
-	}
-	cvri(mask); cvri(resMask);
-
-	return paramResize;
-}
-
-cvi* RecoverProc::DecmpsSmooth(cvi* srcImg, cvi* param, int nLabels)
-{
-	DecmpsProc proc;
-
-	cvi* mask = cvci81(param);
-	doFcvi(mask, i, j)
-	{
-		cvs20(mask, i, j, cvg20(param, i, j)*255);
-	}
-
-	cvi* resMask;
-	proc.Analysis(srcImg, mask, resMask, 1.0f, nLabels);
-
-	doFcvi(mask, i, j)
-	{
-		auto v = cvg2(param, i, j);
-		v.val[0] = cvg20(resMask, i, j) / 255;
-		if(v.val[0] > 0.95)
-		{
-			v.val[1] = 0;
-			v.val[2] = 0;
-		}
-		cvs2(param, i, j, v);
-	}
-	cvri(mask); cvri(resMask);
-	return param;
-
-}
 
 cvi* RecoverProc::BoundarySmooth(cvi* srcImg, cvi* smoothParam, cvi* &shadowMask, float Lthres, float r1, float r2)
 {
@@ -596,52 +479,6 @@ cvi* RecoverProc::VislzBound(cvi* src, cvi* boundMask)
 		if(cvg20(boundMask, i, j) == 0)
 			cvs2(res, i, j, cvg2(src, i, j) / 5);
 	}
-	return res;
-}
-
-cvi* RecoverProc::ImgRecoverNaive(cvi* srcImg, cvi* param)
-{
-	cvi* res = cvci(srcImg);
-	cvZero(res);
-
-	cvi* paramResize = cvci323(srcImg);
-	cvResize(param, paramResize);
-
-	cvCvtColor(srcImg, srcImg, CV_BGR2Lab);
-
-	//cvSmooth(paramResize, paramResize, 1, 2*m_patchRadius+1, 2*m_patchRadius+1);
-	m_patchRadius = 0;
-
-	vector<cvS> resVec(srcImg->width * srcImg->height, cvs(0, 0, 0));
-	vector<int> counts(srcImg->width * srcImg->height, 0);
-	
-	doFcvi(srcImg, i, j)
-	{
-		cvS v2 = cvg2(paramResize, i, j);
-
-		doFs(ii, -m_patchRadius, m_patchRadius+1) doFs(jj, -m_patchRadius, m_patchRadius+1)
-		{
-			if(!cvIn(i+ii, j+jj, srcImg)) continue;
-			cvS v = cvg2(srcImg, i+ii, j+jj);
-			v.val[0] /= v2.val[0];
-			v.val[1] += v2.val[1];
-			v.val[2] += v2.val[2];
-			int idx = (i+ii)*srcImg->width + j+jj;
-			resVec[idx] += v;
-			counts[idx]++;
-		}
-	}
-
-	doFcvi(srcImg, i, j)
-	{
-		int idx = (i)*srcImg->width + j;
-		cvs2(res, i, j, resVec[idx] / counts[idx]);
-	}
-
-	cvCvtColor(res, res, CV_Lab2BGR);
-	cvCvtColor(srcImg, srcImg, CV_Lab2BGR);
-	cvri(paramResize);
-
 	return res;
 }
 
@@ -773,3 +610,229 @@ void RecoverProc::PoissonSmooth(cvi* srcImg, cvi* mask)
 
 	cvCvtColor(srcImg, srcImg, CV_Lab2BGR);
 }
+
+
+/*
+
+void RecoverProc::Recover()
+{
+	wGetDirFiles(m_fileDir + "*_n.png", m_imgNames);
+	wMkDir(m_fileDir + m_ResultDir);
+
+	//GetScript(); return;
+
+	doFv(i, m_imgNames)
+	{
+		string fileName = m_imgNames[i];
+		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 6);
+		if(imgPrefix != "004") continue;
+		cout<<"Handling "<<imgPrefix<<".\n";
+
+		cvi* _srcImg = cvlic(m_fileDir + imgPrefix + ".png");
+		cvi* param = GPMAnalysisProc::LoadGTFile(m_fileDir + m_ParamDir, imgPrefix);
+
+		int resizeRatio = 1;
+		//while(1)
+		//{
+		cvi* srcImg = cvci83(_srcImg->width / resizeRatio, _srcImg->height / resizeRatio);
+		cvResize(_srcImg, srcImg);
+		//cvi* temp = cvci(srcImg);
+		//cvSmooth(temp, srcImg, CV_BILATERAL, 20, 20, 200, 200); cvri(temp);
+
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "__.png", srcImg);
+
+		//save init param
+		cvi* paramResize = cvci323(srcImg);
+		cvResize(param, paramResize);
+		// 			doF(k, 3)
+		// 			{
+		// 				cvi* temp = ShdwAnlysisProc::VislzFCvi(srcImg->width, srcImg->height, paramResize, k, 
+		// 					((k==0)?0:-100), ((k==0)?1:100));
+		// 				cvsi(m_fileDir + m_ResultDir + imgPrefix + "_" + toStr(k) + "_o_" + ".png", temp); cvri(temp);
+		// 			}
+		cvri(paramResize);
+
+		//mrf smoothing and quantify
+		cvi* smoothParam = MRFSmooth(srcImg, param, 16);
+		smoothParam = DecmpsSmooth(srcImg, smoothParam, 128);
+
+		//before boundary smooth save
+		// 			doF(k, 3)
+		// 			{
+		// 				cvi* temp = ShdwAnlysisProc::VislzFCvi(srcImg->width, srcImg->height, smoothParam, k, 
+		// 					((k==0)?0:-100), ((k==0)?1:100));
+		// 				cvsi(m_fileDir + m_ResultDir + imgPrefix + "_" + toStr(k) + "_s1_" + ".png", temp); cvri(temp);
+		// 			}
+		cvi* recoverRes = ImgRecoverNaive(srcImg, smoothParam);
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "__r1.png", recoverRes);
+
+		//boundary Smooth
+		cvi* shadowBinaryMask;
+		float lthres = 185;
+		if(imgPrefix == "114") lthres = 210;
+		if(imgPrefix == "116") lthres = 230;
+		if(imgPrefix == "109") lthres = 220;
+		if(imgPrefix == "102") lthres = 235;
+		if(imgPrefix == "100") lthres = 210;
+		//if(imgPrefix == "201") lthres = 230;
+		cvi* boundMask = BoundarySmooth(srcImg, smoothParam, shadowBinaryMask, 
+			lthres, srcImg->width * 0.02f, srcImg->width * 0.02f); //185
+		cvi* boundShow = VislzBound(recoverRes, boundMask);
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "__r2.png", boundShow);
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "__m.png", shadowBinaryMask);
+		cvri(boundShow); cvri(shadowBinaryMask);
+
+		//after boundary smooth save smooth param
+		doF(k, 3)
+		{
+			cvi* temp = ShdwAnlysisProc::VislzFCvi(srcImg->width, srcImg->height, smoothParam, k, 
+				((k==0)?0:-100), ((k==0)?1:100));
+			cvsi(m_fileDir + m_ResultDir + imgPrefix + "_" + toStr(k) + "_s2_" + ".png", temp); cvri(temp);
+		}
+		cvi* recoverRes2 = ImgRecoverNaive(srcImg, smoothParam); 
+		//cvi* recoverRes = ImgRecoverPoisson(srcImg, param);
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "__r3.png", boundMask);
+
+		//Smooth boundary lightness
+		PoissonSmooth(recoverRes2, boundMask);
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "__r4.png", recoverRes2);
+
+		cvri(param); cvri(srcImg); cvri(recoverRes); cvri(recoverRes2); cvri(boundMask);
+		param = smoothParam;
+		//resizeRatio /= 2;
+		//pause;
+		//}
+		cvri(_srcImg); cvri(param);
+	}
+}
+
+void RecoverProc::Recover2()
+{
+	wGetDirFiles(m_fileDir + "*_n.png", m_imgNames);
+	wMkDir(m_fileDir + m_ResultDir);
+
+	//GetScript(); return;
+
+	doFv(i, m_imgNames)
+	{
+		string fileName = m_imgNames[i];
+		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 6);
+		if(imgPrefix != "316") continue;
+		cout<<"Handling "<<imgPrefix<<".\n";
+
+		cvi* srcImg = cvlic(m_fileDir + imgPrefix + ".png");
+		cvi* _maskImg = cvlig(m_fileDir + m_ResultDir + imgPrefix + "_0_s2_.png");
+		cvi* maskImg = cvci81(srcImg); cvResize(_maskImg, maskImg); cvri(_maskImg);
+		//cvi* maskImg = cvlig(m_fileDir + "GTParam3//" + imgPrefix + "_0_gain.png");
+		//cvSmooth(maskImg, maskImg, 2, srcImg->width / 40, srcImg->width / 40);
+		//cvi* cpImg = cvlic(m_fileDir + m_ResultDir + "pm_cp_res//NEng_nRNG_Win_x64_Rel_8_" + imgPrefix + "res.png");
+		cvi* _cpImg = cvlic(m_fileDir + imgPrefix + "_n.png"); cvi* cpImg = cvci83(srcImg); cvResize(_cpImg, cpImg); cvri(_cpImg);
+
+		//match source with cp
+		//laplacian pyramid, only use correct completion result
+		cvS gain = cvs(0, 0, 0);
+		cvi* recoverImg = GetBestParam(srcImg, maskImg, cpImg, gain);
+		cvsi(m_fileDir + m_ResultDir + "results//" + imgPrefix + "__r1.png", recoverImg);
+		recoverImg = GetBestParamLapPymd(recoverImg, maskImg, cpImg, gain); //pause;
+		cvsi(m_fileDir + m_ResultDir + "results//" + imgPrefix + "__r2.png", recoverImg);
+
+		//get boundary
+		float thres = 185;
+		float ratio1 = 0.02f, ratio2 = 0.02f;
+		if(imgPrefix == "004"){thres = 150; ratio1 = 0.01f; ratio2 = 0.04f;}
+		if(imgPrefix == "012"){ratio1 = 0.01f; ratio2 = 0.04f;}
+		if(imgPrefix == "015"){ratio1 = 0.03f; ratio2 = 0.03f;}
+		// 		if(imgPrefix == "114"){thres = 210;}
+		// 		if(imgPrefix == "102"){thres = 242;}
+		// 		if(imgPrefix == "116") thres = 230;
+		// 		if(imgPrefix == "109") thres = 220;
+		// 		if(imgPrefix == "100") thres = 210;
+		// 		if(imgPrefix == "307"){thres = 245; ratio1 = 0.05f; ratio2 = 0.05f;}
+		cvi* shadowBinaryMask;
+		cvi* boundMask = BoundarySmooth(srcImg, maskImg, shadowBinaryMask, 
+			thres*255, srcImg->width * ratio1, srcImg->width * ratio2);
+		cvi* boundShow = VislzBound(srcImg, boundMask);
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "__m.png", shadowBinaryMask);
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "__b_show.png", boundShow);
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "__b.png", boundMask);
+		//break;
+
+		//poisson boundary
+		//PoissonSmooth(recoverImg, boundMask);
+		doFcvi(recoverImg, i, j) if(cvg20(boundMask, i, j) > 100) cvs2(recoverImg, i, j, cvg2(srcImg, i, j));
+		cvri(boundShow); cvri(boundMask); cvri(shadowBinaryMask);
+
+		cvsi(m_fileDir + m_ResultDir + "results//" + imgPrefix + "__r3.png", recoverImg);
+
+
+		cvri(srcImg); cvri(maskImg); cvri(recoverImg);
+
+
+	}
+}
+
+cvi* RecoverProc::MRFSmooth(cvi* srcImg, cvi* param, int nLabels)
+{
+	cvi* paramResize = cvci323(srcImg);
+	cvResize(param, paramResize);
+
+	MRFProc proc;
+
+	//cvCvtColor(srcImg, srcImg, CV_BGR2Lab);
+	//cvi* res;
+	////MRF smoothing
+	//proc.SolveWithInitialAllCh(srcImg, paramResize, 64, res);
+	//cvCvtColor(srcImg, srcImg, CV_Lab2BGR);
+	//cvri(paramResize);
+
+	cvi* mask = cvci81(paramResize);
+	doFcvi(mask, i, j)
+	{
+		cvs20(mask, i, j, cvg20(paramResize, i, j)*255);
+	}
+
+	cvi* resMask;
+	proc.SolveWithInitial(srcImg, NULL, mask, NULL, nLabels, resMask);
+
+	cvSmooth(paramResize, paramResize, 1, srcImg->width / 30, srcImg->width / 30);
+	doFcvi(mask, i, j)
+	{
+		auto v = cvg2(paramResize, i, j);
+		v.val[0] = cvg20(resMask, i, j) / 255;
+		cvs2(paramResize, i, j, v);
+	}
+	cvri(mask); cvri(resMask);
+
+	return paramResize;
+}
+
+cvi* RecoverProc::DecmpsSmooth(cvi* srcImg, cvi* param, int nLabels)
+{
+	DecmpsProc proc;
+
+	cvi* mask = cvci81(param);
+	doFcvi(mask, i, j)
+	{
+		cvs20(mask, i, j, cvg20(param, i, j)*255);
+	}
+
+	cvi* resMask;
+	proc.Analysis(srcImg, mask, resMask, 1.0f, nLabels);
+
+	doFcvi(mask, i, j)
+	{
+		auto v = cvg2(param, i, j);
+		v.val[0] = cvg20(resMask, i, j) / 255;
+		if(v.val[0] > 0.95)
+		{
+			v.val[1] = 0;
+			v.val[2] = 0;
+		}
+		cvs2(param, i, j, v);
+	}
+	cvri(mask); cvri(resMask);
+	return param;
+
+}
+
+*/

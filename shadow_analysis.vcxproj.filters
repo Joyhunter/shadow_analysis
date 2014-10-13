@@ -51,6 +51,12 @@
     <ClInclude Include="synthesis_proc.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="detection_proc.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="param_loader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -84,6 +90,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="synthesis_proc.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="detection_proc.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="param_loader.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

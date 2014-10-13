@@ -3,6 +3,7 @@
 #include "gpm_analysis.h"
 #include "recovery_proc.h"
 #include "synthesis_proc.h"
+#include "detection_proc.h"
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -33,13 +34,18 @@ int _tmain(int argc, _TCHAR* argv[])
 // 	//gProc.VoteAnalysis();
 // 	return 0;
 
-	SynthesisProc sProc;
-	sProc.Test();
+// 	DetectionProc dProc;
+// 	dProc.SetFileDir("..//dataset//gpmAnalysis//3//");
+// 	dProc.DetectCastShadow();
+// 	return 0;
 
-// 	RecoverProc rProc;
-// 	rProc.SetFileDir("..//dataset//gpmAnalysis//3//");
-// 	//rProc.Recover();
-// 	rProc.Recover2();
+	RecoverProc rProc;
+	rProc.SetFileDir("..//dataset//gpmAnalysis//3//");
+	rProc.Recover3();
+
+	//SynthesisProc sProc;
+	//sProc.Test();
+
 
 
 	return 0;
