@@ -17,6 +17,8 @@ private:
 	cvi* MRFSmooth(cvi* srcImg, cvi* param, int nLabels = 64);
 	cvi* DecmpsSmooth(cvi* srcImg, cvi* param, int nLabels = 64);
 
+	cvi* MattingSmooth(cvi* srcImg, cvi* param, float shdwRatio = 0.5f, int erodeTimes = 5, int dilateTimes = 10);
+
 private:
 
 	string m_fileDir;

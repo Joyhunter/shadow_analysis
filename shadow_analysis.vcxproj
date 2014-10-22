@@ -82,8 +82,11 @@
     <ClInclude Include="..\shadow_removal\gpm_proc.h" />
     <ClInclude Include="..\shadow_removal\img_container.h" />
     <ClInclude Include="..\shadow_removal\mrf_proc.h" />
+    <ClInclude Include="alpha_matting\alpha_matting_proc.h" />
+    <ClInclude Include="alpha_matting\include\global.h" />
     <ClInclude Include="detection_proc.h" />
     <ClInclude Include="gpm_analysis.h" />
+    <ClInclude Include="local_propagation\local_editprop_proc.h" />
     <ClInclude Include="param_loader.h" />
     <ClInclude Include="recovery_proc.h" />
     <ClInclude Include="resource.h" />
@@ -97,9 +100,15 @@
     <ClCompile Include="..\shadow_removal\gpm_proc.cpp" />
     <ClCompile Include="..\shadow_removal\img_container.cpp" />
     <ClCompile Include="..\shadow_removal\mrf_proc.cpp" />
+    <ClCompile Include="alpha_matting\alpha_matting_proc.cpp" />
+    <ClCompile Include="alpha_matting\include\MakeFBUmask.cpp" />
+    <ClCompile Include="alpha_matting\include\MatlabFunc.cpp" />
+    <ClCompile Include="alpha_matting\include\MatlabOp.cpp" />
+    <ClCompile Include="alpha_matting\include\Util.cpp" />
     <ClCompile Include="detection_proc.cpp" />
     <ClCompile Include="gpm_analysis.cpp" />
     <ClCompile Include="gpm_vote_analysis.cpp" />
+    <ClCompile Include="local_propagation\local_editprop_proc.cpp" />
     <ClCompile Include="param_loader.cpp" />
     <ClCompile Include="recovery_proc.cpp" />
     <ClCompile Include="shadow_analysis_main.cpp" />

@@ -34,17 +34,17 @@ int _tmain(int argc, _TCHAR* argv[])
 // 	//gProc.VoteAnalysis();
 // 	return 0;
 
-// 	DetectionProc dProc;
-// 	dProc.SetFileDir("..//dataset//gpmAnalysis//3//");
-// 	dProc.DetectCastShadow();
-// 	return 0;
+	DetectionProc dProc;
+	dProc.SetFileDir("..//dataset//gpmAnalysis//3//");
+	dProc.DetectCastShadow();
+	//return 0;
 
 	RecoverProc rProc;
 	rProc.SetFileDir("..//dataset//gpmAnalysis//3//");
 	rProc.Recover3();
 
-	//SynthesisProc sProc;
-	//sProc.Test();
+// 	SynthesisProc sProc;
+// 	sProc.Test();
 
 
 

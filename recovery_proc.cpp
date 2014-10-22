@@ -22,6 +22,10 @@ void RecoverProc::SetFileDir(string fileDir)
 	m_fileDir = fileDir;
 	m_ParamDir = "02_Detection//"; // VoteParam PredictParam
 	m_ResultDir = "03_Recovery//";
+
+ 	m_ParamDir = "02_VoteDetection//"; // VoteParam PredictParam
+ 	m_ResultDir = "03_VoteRecovery//";
+
 	m_patchRadius = 3;
 }
 
@@ -49,31 +53,36 @@ void RecoverProc::Recover3()
 	{
 		string fileName = m_imgNames[i];
 		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 6);
-		if(imgPrefix != "004") continue;
+		if(imgPrefix != "000") continue;
 		cout<<"Handling "<<imgPrefix<<".\n";
 
 		//load source image and param prediction
 		cvi* srcImg = cvlic(m_fileDir + imgPrefix + ".png");
+		cvi* freeImg = cvlic(m_fileDir + imgPrefix + "_n.png");
 		cvi* param = ParamLoader::LoadParamFromDir(m_fileDir + m_ParamDir, imgPrefix);
 
 		//Step 1: Get naive recovery result
 		cvi* naiveRes = ImgRecoverNaive(srcImg, param, 1);
 		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_naive_res.png", naiveRes);
 
+		cvi* localRes = cvlic(m_fileDir + m_ResultDir + imgPrefix + "_syn_res1.png");
 		//Step 2: Get Patch Synthesis result
+		cvi* holeMask = cvci81(srcImg), *legalMask = cvci81(srcImg);
+		GenerateMaskFromParam(param, holeMask, legalMask, 0.8f, 0.03f);
 		SynthesisProc sProc;
 		cvi* synRes = cvci(srcImg);
-		cvi* holeMask = cvci81(srcImg), *legalMask = cvci81(srcImg);
-		GenerateMaskFromParam(param, holeMask, legalMask);
 		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_syn_hole.png", holeMask);
 		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_syn_legal.png", legalMask);
-		sProc.Synthesis(srcImg, holeMask, synRes, legalMask, naiveRes);
+		sProc.Synthesis(srcImg, holeMask, synRes, legalMask, naiveRes); // naiveRes localRes
 		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_syn_res.png", synRes);
-		cvri(holeMask); cvri(legalMask);
+		//cvi* synRes = cvlic(m_fileDir + m_ResultDir + imgPrefix + "_syn_res.png");
 
 		//Step 3: Local color correction
+		cvi* corRes = LocalColorCorrection(naiveRes, synRes, holeMask);
+		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_cor_res.png", corRes);
 
-		cvri(srcImg); cvri(param); cvri(naiveRes); cvri(synRes);
+		cvri(srcImg); cvri(param); cvri(naiveRes); cvri(synRes); cvri(freeImg); cvri(localRes);
+		cvri(holeMask); cvri(legalMask); cvri(corRes);
 	}
 }
 
@@ -89,7 +98,7 @@ cvi* RecoverProc::ImgRecoverNaive(cvi* _srcImg, cvi* param, int patchSize)
 	cvCvtColor(srcImg, srcImg, CV_BGR2Lab);
 
 	//cvSmooth(paramResize, paramResize, 1, 2*m_patchRadius+1, 2*m_patchRadius+1);
-	m_patchRadius = (patchSize - 1)/2;
+	int m_patchRadius = (patchSize - 1)/2;
 
 	vector<cvS> resVec(srcImg->width * srcImg->height, cvs(0, 0, 0));
 	vector<int> counts(srcImg->width * srcImg->height, 0);
@@ -103,8 +112,10 @@ cvi* RecoverProc::ImgRecoverNaive(cvi* _srcImg, cvi* param, int patchSize)
 			if(!cvIn(i+ii, j+jj, srcImg)) continue;
 			cvS v = cvg2(srcImg, i+ii, j+jj);
 			v.val[0] /= v2.val[0];
-			v.val[1] += v2.val[1];
-			v.val[2] += v2.val[2];
+
+			//v.val[1] = v.val[0]; v.val[2] = v.val[0];
+			v.val[1] += v2.val[1]; v.val[2] += v2.val[2];
+
 			int idx = (i+ii)*srcImg->width + j+jj;
 			resVec[idx] += v;
 			counts[idx]++;
@@ -141,6 +152,94 @@ void RecoverProc::GenerateMaskFromParam(IN cvi* param, OUT cvi* holeMask, OUT cv
 	}
 }
 
+cvi* RecoverProc::LocalColorCorrection(cvi* _naiveRes, cvi* _synRes, cvi* _holeMask)
+{	
+	int patchRadius = 10;
+
+	//build pyramid
+	int nLevels = 2; float rsRatio = 0.5f;
+	ImgPrmd naivePrmd(_naiveRes, nLevels, rsRatio), synPrmd(_synRes, nLevels, rsRatio);
+
+	doF(k, nLevels+1)
+	{
+		cvi* naiveRes = naivePrmd.imgs[k], *synRes = synPrmd.imgs[k];
+		cvi* holeMask = cvci81(naiveRes); cvResize(_holeMask, holeMask);
+
+		cvi* corRes = LocalColorCorrectionSingleLevel(naiveRes, synRes, holeMask, patchRadius);
+		cvsi("1.png", naiveRes); cvsi("2.png", synRes); cvsi("3.png", corRes); //pause;
+
+		cvCopy(corRes, naiveRes); cvri(corRes);		
+		cvri(holeMask);
+
+		patchRadius = max2(patchRadius / 2, 1); 
+	}
+
+	cvi* corRes = naivePrmd.Flatten();
+	naivePrmd.Release(); synPrmd.Release();
+
+	return corRes;
+}
+
+cvi* RecoverProc::LocalColorCorrectionSingleLevel(cvi* naiveRes, cvi* synRes, cvi* holeMask, int patchRadius)
+{
+	cvi* corRes = cvci(naiveRes); //cvZero(corRes);
+
+	int step = max2(patchRadius / 2, 1);
+
+	cvi* voteSum = cvci323(corRes), *weight = cvci321(corRes);
+	doFcvi(naiveRes, i, j)
+	{
+		if(cvg20(holeMask, i, j) == 0) continue;
+		if(i % step != 0 || j % step != 0) continue;
+
+		//get patches
+		vector<cvS> patch1, patch2; vector<float> weights; float cnt = 0;
+		doFs(ii, i-patchRadius, i+patchRadius+1) doFs(jj, j-patchRadius, j+patchRadius+1)
+		{
+			if(!cvIn(ii, jj, corRes)) continue;
+			patch1.push_back(cvg2(naiveRes, ii, jj)); patch2.push_back(cvg2(synRes, ii, jj));
+			float w = _f gaussian(distEulerL2(_f ii, _f jj, _f i, _f j), 0, _f patchRadius / 2);
+			weights.push_back(w); cnt += w;
+		}
+
+		//get avg and sigma
+		cvS avg1 = cvs(0, 0, 0), avg2 = cvs(0, 0, 0), sigma1 = cvs(0, 0, 0), sigma2 = cvs(0, 0, 0);
+		doFv(k, patch1){ avg1 += patch1[k] * weights[k]; avg2 += patch2[k] * weights[k]; }
+		avg1 /= cnt; avg2 /= cnt;
+		doFv(k, patch1){ sigma1 += sqr(patch1[k] - avg1) * weights[k]; sigma2 += sqr(patch2[k] - avg2) * weights[k];}
+		doF(k, 3){ sigma1.val[k] = sqrt(sigma1.val[k]/cnt); sigma2.val[k] = sqrt(sigma2.val[k]/cnt);}
+		//cout<<avg1.val[0]<<" "<<avg2.val[0]<<" "<<sigma1.val[0]<<" "<<sigma2.val[0]<<"  "; pause;
+		doFv(k, patch1) doF(ch, 3)
+		{
+			if(sigma1.val[ch] == 0) patch1[k].val[ch] = (patch1[k].val[ch] - avg1.val[ch]) + avg2.val[ch];
+			else patch1[k].val[ch] = (patch1[k].val[ch] - avg1.val[ch]) / sigma1.val[ch] * sigma2.val[ch] + avg2.val[ch];
+		}
+
+		//set back
+		int idx = 0;
+		doFs(ii, i-patchRadius, i+patchRadius+1) doFs(jj, j-patchRadius, j+patchRadius+1)
+		{
+			if(!cvIn(ii, jj, corRes)) continue;
+			cvS v = cvg2(voteSum, ii, jj), v2 = cvg2(weight, ii, jj);
+			v += patch1[idx] * weights[idx]; v2 += weights[idx];
+			cvs2(voteSum, ii, jj, v); cvs2(weight, ii, jj, v2);
+			idx++;
+		}
+	}
+
+	//output vote Result
+	doFcvi(corRes, i, j)
+	{
+		cvS v = cvg2(voteSum, i, j), v2 = cvg2(weight, i, j);
+		if(v2.val[0] > 0)
+		{
+			cvs2(corRes, i, j, v / v2.val[0]); //cout<<v2.val[0]<<" ";
+		}
+	}
+
+	cvri(voteSum); cvri(weight);
+	return corRes;
+}
 
 
 ImgPrmd::ImgPrmd(cvi* img, int levels, float ratio)

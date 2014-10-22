@@ -17,7 +17,7 @@ SynthesisProc::~SynthesisProc(void)
 void SynthesisProc::Test()
 {
 	string fileDir = "..//dataset//gpmAnalysis//3//synthesis//";
-	string imgPrefix = "400";
+	string imgPrefix = "004";
 
 	cvi* srcImg = cvlic(fileDir + imgPrefix + ".png");
 	cvi* holeMask = cvlig(fileDir + imgPrefix + "_hole.png"); cvDilate(holeMask, holeMask, 0, 3);
@@ -37,19 +37,19 @@ void SynthesisCfg::Init()
 
 	pymResizeRatio = 0.5f; // 0.5
 	pymLevels = 6; // 5
-	cpltItrN = 2; // 2
-	poissonAlpha = 0.f; // 0.1
+	cpltItrN = 8; // 2
+	poissonAlpha = 0.5f; // 0.1
 
 	gpmItrN = 2; // 2
 	hFlipEnabled = true; // true
 	vFlipEnabled = true; // true
 	scaleRotateEnabled = false; // false
-	gainBiasEnabled = false; // false
+	gainBiasEnabled = true; // false
 	randomSearchEnabled = true;
 	randomSearchScaleFactor = 0.5f;
-	randomSearchRadius = 0.1f;
+	randomSearchRadius = 0.2f;
 
-	guideImgWeight = 0.f; // 0.0
+	guideImgWeight = 10.0f; // 0.0
 }
 
 void SynthesisProc::Synthesis(cvi* _srcImg, cvi* _holeMask, cvi* _resImg, cvi* _legalMask, cvi* _guideImg)
@@ -115,6 +115,8 @@ void SynthesisProc::Synthesis(cvi* _srcImg, cvi* _holeMask, cvi* _resImg, cvi* _
 		cvsi("img.png", img);
 		//pause;
 
+		//cvCvtColor(guideImg, guideImg, CV_BGR2Lab);
+
 		//completion iteration
 		DenseCorrSyn* dsCor = lastLevelRes;
 		for(int l = 0; l < cpltItrN; l++)
@@ -144,6 +146,8 @@ void SynthesisProc::Synthesis(cvi* _srcImg, cvi* _holeMask, cvi* _resImg, cvi* _
 
 		if(img->width == _resImg->width) cvCopy(img, _resImg);
 		cvri(img); cvri(holeMask); cvri(legalMask); cvri(guideImg); cvri(resImg);
+
+		cpltItrN -= 2;
 	}
 	cout<<"\rSynthesis complete...\n";
 	
@@ -183,7 +187,8 @@ void SynthesisProc::VoteToCompletion(DenseCorrSyn* dsCor, InputImageData& imageD
 			if(!cvIn(iDel, jDel, res)) continue;
 			if(!cvIn(iDel, jDel, imageData.holeMask) || cvg20(imageData.holeMask, iDel, jDel) == 0) continue;
 			
-			cvS v = cvg2(res, iDel, jDel); v += patch.pixels[idx] * corr.gain + corr.bias; cvs2(res, iDel, jDel, v);
+			cvS v = cvg2(res, iDel, jDel); v += patch.pixels[idx];// * corr.gain + corr.bias;
+			cvs2(res, iDel, jDel, v);
 			cvS vi = cvg2(cnt, iDel, jDel); vi.val[0]++; cvs2(cnt, iDel, jDel, vi);
 
 			if(ii < patchSize - 1)
@@ -213,14 +218,14 @@ void SynthesisProc::VoteToCompletion(DenseCorrSyn* dsCor, InputImageData& imageD
 	}
 
 	cvCopy(imageData.src, resImg);
-	//PossionSolve(imageData.src, imageData.holeMask, resImg, res, gradient1, gradient2, gradientAlpha);
+	PossionSolve(imageData.src, imageData.holeMask, resImg, res, gradient1, gradient2, gradientAlpha);
 
-	doFcvi(resImg, i, j)
-	{
-		//if(cvg20(imageData.holeMask, i, j) == 0) continue;
-		if(cvg2(cnt, i, j).val[0] == 0) continue;
-		cvs2(resImg, i, j, cvg2(res, i, j));
-	}
+// 	doFcvi(resImg, i, j)
+// 	{
+// 		//if(cvg20(imageData.holeMask, i, j) == 0) continue;
+// 		if(cvg2(cnt, i, j).val[0] == 0) continue;
+// 		cvs2(resImg, i, j, cvg2(res, i, j));
+// 	}
 
 	cvri(res); cvri(cnt); cvri(gradient1); cvri(gradient2);
 }
@@ -358,8 +363,10 @@ float PatchDistMetricSyn::ComputePatchDist(InputImageData& src, float x, float y
 
 float PatchDistMetricSyn::ComputePatchDistHelper(PatchSyn& vDst, PatchSyn& vSrc, cvS bias, cvS gain)
 {
-	float d1 = CptDistDirectWithBiasAndGain(vDst.pixels, vSrc.pixels, bias, gain); //return d1;
+	float d1 = CptDistDirectWithBiasAndGain(vDst.pixels, vSrc.pixels, cvs(0, 0, 0), cvs(1, 1, 1)); //return d1;
 	float d2 = CptDistDirectWithBiasAndGain(vDst.guidePixels, vSrc.guidePixels, bias, gain); //return d2;
+	//cvS ratio;
+	//float d2 = CptDistAlphaWeight(vDst.guidePixels, vSrc.guidePixels, cvs(-1, -1, -1), cvs(1, 1, 1), false, 3.0f, ratio); //return d2;
 	return sqrt(sqr(d1) + sqr(d2)*SynthesisProc::cfg.guideImgWeight);
 }
 
@@ -372,6 +379,58 @@ float PatchDistMetricSyn::CptDistDirectWithBiasAndGain(vector<cvS>& vDst, vector
 	}
 	return sqrt(sum / vDst.size());
 }
+
+float PatchDistMetricSyn::CptDistAlphaWeight(vector<cvS>& vDst, vector<cvS>& vSrc, 
+	IN cvS useAlpha, IN cvS weights, IN bool firstIsHue, IN float maxRatio, OUT cvS& alpha)
+{
+	cvS sumS = cvs(0, 0, 0), sumD = cvs(0, 0, 0);
+	doFv(i, vSrc)
+	{
+		sumS += vSrc[i];
+		sumD += vDst[i];
+	}
+	alpha = cvs(1, 1, 1);
+	doF(k, 3)
+	{
+		float sumS2 = 0, sumD2 = 0;
+		doF(i, 3)
+		{
+			if(useAlpha.val[i] != k) continue;
+			sumS2 +=  _f sumS.val[i];
+			sumD2 += _f sumD.val[i];
+		}
+		if(sumD2 > 0) alpha.val[k] = clamp(sumS2 / sumD2, 1.f / maxRatio, maxRatio);
+	}
+
+	float sum = 0;
+	doFv(i, vDst)
+	{
+		cvS dstV = vDst[i], srcV = vSrc[i];
+		doF(k, 3)
+		{
+			if(useAlpha.val[k] > 0) dstV.val[k] *= alpha.val[round(useAlpha.val[k])];
+		}
+
+		if(firstIsHue)
+		{
+			float hueChange = fabs(_f (dstV.val[0] - srcV.val[0]));
+			if(hueChange > 128) hueChange = 255 - hueChange;
+			sum += sqr(hueChange) * _f weights.val[0];
+		}
+		else
+		{
+			sum += _f sqr(dstV.val[0] - srcV.val[0]) * _f weights.val[0];
+		}
+
+		sum += _f sqr(dstV.val[1] - srcV.val[1]) * _f weights.val[1];
+		sum += _f sqr(dstV.val[2] - srcV.val[2]) * _f weights.val[2];
+	}
+
+	//doF(i, 3) alphaPenlity *= 2.f - _f gaussian(fabs(_f log(alpha.val[i])), 0.0f, 0.01f);
+
+	return sqrt(sum / vDst.size());
+}
+
 
 //--------------------- Corr & DenseCorr ---------------------------------------
 
@@ -670,8 +729,8 @@ GPMSynRange GPMSynProc::GetRange()
 
 	if(SynthesisProc::cfg.gainBiasEnabled)
 	{
-		m_range.setGain(cvs(0.8, 0.8, 0.8), cvs(1.2, 1.2, 1.2));
-		m_range.setBias(cvs(-10, -10, -10), cvs(10, 10, 10));
+		m_range.setGain(cvs(0.9, 0.9, 0.9), cvs(1.1, 1.1, 1.1));
+		m_range.setBias(cvs(-5, -5, -5), cvs(5, 5, 5));
 	}
 	else
 	{

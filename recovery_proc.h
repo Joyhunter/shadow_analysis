@@ -21,13 +21,18 @@ public:
 	//void Recover2();
 	void Recover3();
 
+	//naive direct compute result
+	static cvi* ImgRecoverNaive(cvi* srcImg, cvi* param, int patchSize = 7);
+
+
 private:
 
-	//naive direct compute result
-	cvi* ImgRecoverNaive(cvi* srcImg, cvi* param, int patchSize = 7);
 
 	//synthesis
 	void GenerateMaskFromParam(IN cvi* param, OUT cvi* holeMask, OUT cvi* legalMask, float thres = 0.8f, float bound = 0.05f);
+
+	cvi* LocalColorCorrection(cvi* naiveRes, cvi* synRes, cvi* holeMask);
+	cvi* LocalColorCorrectionSingleLevel(cvi* naiveRes, cvi* synRes, cvi* holeMask, int patchRadius = 10);
 
 
 

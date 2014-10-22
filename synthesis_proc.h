@@ -119,6 +119,8 @@ public:
 
 	static float ComputePatchDistHelper(PatchSyn& vDst, PatchSyn& vSrc, cvS bias, cvS gain);
 	static float CptDistDirectWithBiasAndGain(vector<cvS>& vDst, vector<cvS>& vSrc, IN cvS bias, IN cvS gain);
+	static float CptDistAlphaWeight(vector<cvS>& vDst, vector<cvS>& vSrc, 
+		IN cvS useAlpha, IN cvS weights, IN bool firstIsHue, IN float maxRatio, OUT cvS& alpha);
 };
 
 //--------------------- Corr & DenseCorr ---------------------------------------
