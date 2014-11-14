@@ -20,6 +20,7 @@ struct SynthesisCfg
 	float pymResizeRatio; // 0.5
 	int pymLevels; // 5
 	int cpltItrN; // 2
+	int cpltItrDecreaseN; 
 	float poissonAlpha; // 0.1
 
 	//gpm
@@ -54,7 +55,9 @@ public:
 
 private:
 
-	void VoteToCompletion(DenseCorrSyn* dsCor, InputImageData& imageData, cvi* resImg, int patchSize, float gradientAlpha = 1);	
+	void VoteToCompletion(DenseCorrSyn* dsCor, InputImageData& imageData, cvi* resImg, int patchSize, float gradientAlpha = 1);
+
+	void VoteViaLocalCorrection(DenseCorrSyn* dsCor, InputImageData& imageData, cvi* resImg, int patchSize);	
 
 	void PossionSolve(cvi* srcImg, cvi* holeImg, cvi* resImg, cvi* resConstrain, 
 		cvi* gradientConstrainV, cvi* gradientConstrainH, float gradientAlpha = 1);

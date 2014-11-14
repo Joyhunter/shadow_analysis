@@ -53,7 +53,7 @@ void RecoverProc::Recover3()
 	{
 		string fileName = m_imgNames[i];
 		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 6);
-		if(imgPrefix != "000") continue;
+		if(imgPrefix != "004" && imgPrefix != "004") continue;
 		cout<<"Handling "<<imgPrefix<<".\n";
 
 		//load source image and param prediction
@@ -61,11 +61,14 @@ void RecoverProc::Recover3()
 		cvi* freeImg = cvlic(m_fileDir + imgPrefix + "_n.png");
 		cvi* param = ParamLoader::LoadParamFromDir(m_fileDir + m_ParamDir, imgPrefix);
 
+// 		cvi* param = cvci323(srcImg);
+// 		cvResize(_param, param);
+
 		//Step 1: Get naive recovery result
 		cvi* naiveRes = ImgRecoverNaive(srcImg, param, 1);
 		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_naive_res.png", naiveRes);
 
-		cvi* localRes = cvlic(m_fileDir + m_ResultDir + imgPrefix + "_syn_res1.png");
+		//cvi* localRes = cvlic(m_fileDir + m_ResultDir + imgPrefix + "_syn_res.png");
 		//Step 2: Get Patch Synthesis result
 		cvi* holeMask = cvci81(srcImg), *legalMask = cvci81(srcImg);
 		GenerateMaskFromParam(param, holeMask, legalMask, 0.8f, 0.03f);
@@ -75,13 +78,15 @@ void RecoverProc::Recover3()
 		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_syn_legal.png", legalMask);
 		sProc.Synthesis(srcImg, holeMask, synRes, legalMask, naiveRes); // naiveRes localRes
 		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_syn_res.png", synRes);
-		//cvi* synRes = cvlic(m_fileDir + m_ResultDir + imgPrefix + "_syn_res.png");
+// 		cvi* synRes = cvlic(m_fileDir + m_ResultDir + imgPrefix + "_syn_res.png");
+// 		cvi* naiveRes = cvlic(m_fileDir + m_ResultDir + imgPrefix + "_naive_res.png");
+// 		cvi* holeMask = NULL; cvi* param = NULL; cvi* legalMask = NULL;
 
 		//Step 3: Local color correction
 		cvi* corRes = LocalColorCorrection(naiveRes, synRes, holeMask);
 		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_cor_res.png", corRes);
 
-		cvri(srcImg); cvri(param); cvri(naiveRes); cvri(synRes); cvri(freeImg); cvri(localRes);
+		cvri(srcImg); cvri(param); cvri(naiveRes); cvri(synRes); cvri(freeImg); //cvri(localRes);
 		cvri(holeMask); cvri(legalMask); cvri(corRes);
 	}
 }
@@ -152,18 +157,55 @@ void RecoverProc::GenerateMaskFromParam(IN cvi* param, OUT cvi* holeMask, OUT cv
 	}
 }
 
+cvi* RecoverProc::GetCorCpltPixels(cvi* _naiveRes, cvi* _synRes)
+{
+	cvi* mask = cvci83(_naiveRes); cvZero(mask);
+
+	cvi* naiveRes = cvci(_naiveRes); cvCvtColor(naiveRes, naiveRes, CV_BGR2Lab);
+	cvi* synRes = cvci(_synRes); cvCvtColor(synRes, synRes, CV_BGR2Lab);
+
+	int patchOffset = 2;
+
+	doFcvi(mask, i, j)
+	{
+		cvS avg1 = cvs(0, 0, 0), avg2 = avg1;
+		int n = 0;
+		doFs(ii, -patchOffset, patchOffset + 1) doFs(jj, -patchOffset, patchOffset + 1)
+		{
+			if(!cvIn(i+ii, j+jj, mask)) continue;
+			n++;
+			avg1 += cvg2(naiveRes, i+ii, j+jj); avg2 += cvg2(synRes, i+ii, j+jj);
+		}
+		avg1 /= n; avg2 /= n;
+
+		//decide
+		double lGain = (avg1.val[0] < 20)?1:10; if(avg2.val[0] != 0) lGain = avg1.val[0] / avg2.val[0];
+		double aBias = fabs(avg1.val[1] - avg2.val[1]), bBias = fabs(avg1.val[2] - avg2.val[2]);
+
+		cvs2(mask, i, j, cvs(lGain*100, aBias, bBias));
+		//if(lGain > 0.8f && lGain < 1.2f && aBias < 3 && bBias < 3) cvs20(mask, i, j, 255);
+	}
+	cvri(naiveRes); cvri(synRes);
+	
+	return mask;
+}
+
 cvi* RecoverProc::LocalColorCorrection(cvi* _naiveRes, cvi* _synRes, cvi* _holeMask)
 {	
 	int patchRadius = 10;
 
+	//get correct completion pixels
+	cvi* cpltMask = GetCorCpltPixels(_naiveRes, _synRes);
+	cvsi("4.png", cpltMask);
+
 	//build pyramid
-	int nLevels = 2; float rsRatio = 0.5f;
+	int nLevels = 3; float rsRatio = 0.5f;
 	ImgPrmd naivePrmd(_naiveRes, nLevels, rsRatio), synPrmd(_synRes, nLevels, rsRatio);
 
 	doF(k, nLevels+1)
 	{
 		cvi* naiveRes = naivePrmd.imgs[k], *synRes = synPrmd.imgs[k];
-		cvi* holeMask = cvci81(naiveRes); cvResize(_holeMask, holeMask);
+		cvi* holeMask = NULL; if(_holeMask){holeMask = cvci81(naiveRes); cvResize(_holeMask, holeMask);}
 
 		cvi* corRes = LocalColorCorrectionSingleLevel(naiveRes, synRes, holeMask, patchRadius);
 		cvsi("1.png", naiveRes); cvsi("2.png", synRes); cvsi("3.png", corRes); //pause;
@@ -177,6 +219,8 @@ cvi* RecoverProc::LocalColorCorrection(cvi* _naiveRes, cvi* _synRes, cvi* _holeM
 	cvi* corRes = naivePrmd.Flatten();
 	naivePrmd.Release(); synPrmd.Release();
 
+	cvri(cpltMask);
+
 	return corRes;
 }
 
@@ -187,16 +231,17 @@ cvi* RecoverProc::LocalColorCorrectionSingleLevel(cvi* naiveRes, cvi* synRes, cv
 	int step = max2(patchRadius / 2, 1);
 
 	cvi* voteSum = cvci323(corRes), *weight = cvci321(corRes);
+	cvZero(voteSum); cvZero(weight);
 	doFcvi(naiveRes, i, j)
 	{
-		if(cvg20(holeMask, i, j) == 0) continue;
+		if(holeMask && cvg20(holeMask, i, j) == 0) continue;
 		if(i % step != 0 || j % step != 0) continue;
 
 		//get patches
 		vector<cvS> patch1, patch2; vector<float> weights; float cnt = 0;
 		doFs(ii, i-patchRadius, i+patchRadius+1) doFs(jj, j-patchRadius, j+patchRadius+1)
 		{
-			if(!cvIn(ii, jj, corRes)) continue;
+			if(!cvIn(ii, jj, corRes)) {continue;}
 			patch1.push_back(cvg2(naiveRes, ii, jj)); patch2.push_back(cvg2(synRes, ii, jj));
 			float w = _f gaussian(distEulerL2(_f ii, _f jj, _f i, _f j), 0, _f patchRadius / 2);
 			weights.push_back(w); cnt += w;
@@ -211,17 +256,19 @@ cvi* RecoverProc::LocalColorCorrectionSingleLevel(cvi* naiveRes, cvi* synRes, cv
 		//cout<<avg1.val[0]<<" "<<avg2.val[0]<<" "<<sigma1.val[0]<<" "<<sigma2.val[0]<<"  "; pause;
 		doFv(k, patch1) doF(ch, 3)
 		{
-			if(sigma1.val[ch] == 0) patch1[k].val[ch] = (patch1[k].val[ch] - avg1.val[ch]) + avg2.val[ch];
-			else patch1[k].val[ch] = (patch1[k].val[ch] - avg1.val[ch]) / sigma1.val[ch] * sigma2.val[ch] + avg2.val[ch];
+			if(sigma1.val[ch] == 0){patch1[k].val[ch] = (patch1[k].val[ch] - avg1.val[ch]) + avg2.val[ch];}
+			else
+				patch1[k].val[ch] = (patch1[k].val[ch] - avg1.val[ch]) / sigma1.val[ch] * sigma2.val[ch] + avg2.val[ch];
 		}
 
 		//set back
 		int idx = 0;
 		doFs(ii, i-patchRadius, i+patchRadius+1) doFs(jj, j-patchRadius, j+patchRadius+1)
 		{
-			if(!cvIn(ii, jj, corRes)) continue;
+			if(!cvIn(ii, jj, corRes)) {continue;}
 			cvS v = cvg2(voteSum, ii, jj), v2 = cvg2(weight, ii, jj);
 			v += patch1[idx] * weights[idx]; v2 += weights[idx];
+			//v += patch1[idx]; v2 += 1;
 			cvs2(voteSum, ii, jj, v); cvs2(weight, ii, jj, v2);
 			idx++;
 		}
@@ -231,11 +278,11 @@ cvi* RecoverProc::LocalColorCorrectionSingleLevel(cvi* naiveRes, cvi* synRes, cv
 	doFcvi(corRes, i, j)
 	{
 		cvS v = cvg2(voteSum, i, j), v2 = cvg2(weight, i, j);
-		if(v2.val[0] > 0)
+		if(v2.val[0] > 1e-3)
 		{
 			cvs2(corRes, i, j, v / v2.val[0]); //cout<<v2.val[0]<<" ";
 		}
-	}
+	}//cvsi(corRes);
 
 	cvri(voteSum); cvri(weight);
 	return corRes;

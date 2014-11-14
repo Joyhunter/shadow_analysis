@@ -34,6 +34,8 @@ private:
 	cvi* LocalColorCorrection(cvi* naiveRes, cvi* synRes, cvi* holeMask);
 	cvi* LocalColorCorrectionSingleLevel(cvi* naiveRes, cvi* synRes, cvi* holeMask, int patchRadius = 10);
 
+	cvi* GetCorCpltPixels(cvi* naiveRes, cvi* synRes);
+
 
 
 	//smooth

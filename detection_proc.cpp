@@ -19,7 +19,7 @@ DetectionProc::~DetectionProc(void)
 void DetectionProc::SetFileDir(string fileDir)
 {
 	m_fileDir = fileDir;
-	m_srcDir = "01_PredictParam//"; // VoteParam PredictParam
+	m_srcDir = "01_VoteParam//"; // VoteParam PredictParam
 	m_resDir = "02_VoteDetection//";
 	wMkDir(m_fileDir + m_resDir);
 }
@@ -33,7 +33,7 @@ void DetectionProc::DetectCastShadow()
 		//get image prefix
 		string fileName = m_imgNames[i];
 		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 6);
-		if(imgPrefix != "000") continue;
+		if(imgPrefix != "004") continue;
 		cout<<"Handling "<<imgPrefix<<".\n";
 
 		//load source image and param prediction
@@ -72,7 +72,7 @@ cvi* DetectionProc::DetectCastShadow(cvi* srcImg, cvi* param)
 
 	//cvi* smoothSrc = cvci(srcImg);
 	//cvSmooth(srcImg, smoothSrc, 2, 31, 31);
-	smoothParam = MattingSmooth(srcImg, smoothParam, 0.8f, 5, 10);
+	smoothParam = MattingSmooth(srcImg, smoothParam, 0.8f, 15, 10);
 
 	//Test
 	resImg = RecoverProc::ImgRecoverNaive(srcImg, smoothParam, 1);

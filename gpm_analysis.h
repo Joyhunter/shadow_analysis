@@ -79,6 +79,22 @@ public:
 
 	void SetFileDir(string fileDir);
 
+	//interface 1: Run Grid GPM for all images, and save file to corr
+	void RunGPMForAllImages();
+
+private:
+
+	//Read cfg to GPMParam param
+	void ReadParam(string cfgFile = "gpm.cfg");
+
+	//Get corr file save dir of imgName
+	string GetCorrFileDir(string imgName);
+
+
+
+public:
+
+
 	void ShdwAnlysis();
 
 	//learn to predict
@@ -88,7 +104,6 @@ public:
 
 private:
 
-	void RunGPMForAllImages();
 
 	void GetStatistics(ofstream& fout);
 
@@ -96,7 +111,6 @@ private:
 	double OptimizeGbVLab(Patch& srcPatch, Patch& dstPatch, vector<double>& gbV, double& dist);
 	cvS GetVoteError();
 
-	void ReadParam();
 
 	void test();
 	
@@ -106,7 +120,6 @@ private:
 	void InitRTParam();
 
 
-	string GetCorrFileDir(string imgName);
 	string GetShadowSegDir(string imgName);
 	string GetMaterialSegDir(string imgName);
 

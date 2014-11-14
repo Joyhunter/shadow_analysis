@@ -15,6 +15,84 @@ void GPMAnalysisProc::SetFileDir(string fileDir)
 	m_fileDir = fileDir;
 }
 
+void GPMAnalysisProc::ReadParam(string cfgFile)
+{
+	ifstream fin(cfgFile.c_str());
+	float v1, v2, v3, v4, v5, v6;
+	fin>>v1>>v2;
+	param.range.setScale(v1, v2);
+	fin>>v1>>v2;
+	param.range.setRotate(v1 * (float)CV_PI, v2 * (float)CV_PI);
+	fin>>v1>>v2>>v3>>v4>>v5>>v6;
+	param.range.setGain(cvs(v1, v2, v3), cvs(v4, v5, v6)); //0.92
+	fin>>v1>>v2>>v3>>v4>>v5>>v6;
+	param.range.setBias(cvs(v1, v2, v3), cvs(v4, v5, v6)); //21.4
+	fin>>param.downRatio;
+	fin>>param.multiLevelRatio;
+	fin>>param.extraLevelN;
+	fin>>param.patchSize;
+	fin>>param.distThres;
+	fin>>rangeDir;
+	fin.close();
+}
+
+string GPMAnalysisProc::GetCorrFileDir(string imgName)
+{
+	return "corr//" + rangeDir + imgName.substr(0, imgName.size()-4)
+		+ "_" + toStr(param.downRatio) + "_" + toStr(param.multiLevelRatio) + "_" + toStr(param.extraLevelN)
+		+ "_" + toStr(param.patchSize) + ".corr";
+}
+
+//----------------------------- interface 1: Run Grid GPM for all images -------------------
+
+void GPMAnalysisProc::RunGPMForAllImages()
+{
+	cout<<"Reading image names...";
+	wGetDirFiles(m_fileDir + "*.png", m_imgNames);
+
+	cout<<"Reading params...";
+	ReadParam();
+
+	cout<<"Begin Running gpm for all images..."<<endl;
+
+	wMkDir(m_fileDir + "corr//" + rangeDir);
+
+	doFv(i, m_imgNames)
+	{
+		if(m_imgNames[i][m_imgNames[i].size()-5] == 'n') continue;
+		cout<<"\r  Runing GPM for image "<<m_imgNames[i]<<"...\n";
+
+		ImgContainer img(m_fileDir + m_imgNames[i], param.downRatio, param.colorMode);
+
+		int gridSize = _i(img.src()->width * 0.28f);
+		int gridOffset = _i(img.src()->width * 0.25f);
+
+		string coorName = GetCorrFileDir(m_imgNames[i]);
+		string corrFileName = m_fileDir + coorName;
+
+		LmnIvrtPatchDistMetric metric2;
+		GridGPMProc proc(&metric2, gridSize, gridOffset, 1, param.patchSize, 20, &(param.range));
+
+		proc.RunGridGPMMultiScale(img, corrFileName, param.multiLevelRatio, param.extraLevelN);
+		//if(img.srcR() == NULL) img.GenerateResizedImg(1);
+		//proc.ShowGPMResUI(img, corrFileName, param.distThres);
+
+		cout<<"\r  GPM of "<<m_imgNames[i]<<" complete. File saved to "<<coorName<<".\n";
+	}
+}
+
+//----------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
 void GPMAnalysisProc::ShdwAnlysis()
 {
 	wGetDirFiles(m_fileDir + "*.png", m_imgNames);
@@ -110,33 +188,6 @@ void GPMAnalysisProc::test()
 
 }
 
-void GPMAnalysisProc::ReadParam()
-{
-	ifstream fin("gpm.cfg");
-	float v1, v2, v3, v4, v5, v6;
-	fin>>v1>>v2;
-	param.range.setScale(v1, v2);
-	fin>>v1>>v2;
-	param.range.setRotate(v1 * (float)CV_PI, v2 * (float)CV_PI);
-	fin>>v1>>v2>>v3>>v4>>v5>>v6;
-	param.range.setGain(cvs(v1, v2, v3), cvs(v4, v5, v6)); //0.92
-	fin>>v1>>v2>>v3>>v4>>v5>>v6;
-	param.range.setBias(cvs(v1, v2, v3), cvs(v4, v5, v6)); //21.4
-	fin>>param.downRatio;
-	fin>>param.multiLevelRatio;
-	fin>>param.extraLevelN;
-	fin>>param.patchSize;
-	fin>>param.distThres;
-	fin>>rangeDir;
-	fin.close();
-}
-
-string GPMAnalysisProc::GetCorrFileDir(string imgName)
-{
-	return "corr//" + rangeDir + imgName.substr(0, imgName.size()-4)
-		+ "_" + toStr(param.downRatio) + "_" + toStr(param.multiLevelRatio) + "_" + toStr(param.extraLevelN)
-		+ "_" + toStr(param.patchSize) + ".corr";
-}
 string GPMAnalysisProc::GetShadowSegDir(string imgName)
 {
 	return "mask//" + imgName.substr(0, imgName.size()-4) + "s.png";
@@ -146,35 +197,6 @@ string GPMAnalysisProc::GetMaterialSegDir(string imgName)
 	return "mask//" + imgName.substr(0, imgName.size()-4) + "m.png";
 }
 
-void GPMAnalysisProc::RunGPMForAllImages()
-{
-	cout<<"Begin Running gpm for all images..."<<endl;
-	
-	wMkDir(m_fileDir + "corr//" + rangeDir);
-
-	doFv(i, m_imgNames)
-	{
-		if(m_imgNames[i][m_imgNames[i].size()-5] == 'n') continue;
-		cout<<"\r  Runing GPM for image "<<m_imgNames[i]<<"...\n";
-
-		ImgContainer img(m_fileDir + m_imgNames[i], param.downRatio, param.colorMode);
-
-		int gridSize = _i(img.src()->width * 0.28f);
-		int gridOffset = _i(img.src()->width * 0.25f);
-		
-		string coorName = GetCorrFileDir(m_imgNames[i]);
-		string corrFileName = m_fileDir + coorName;
-
-		LmnIvrtPatchDistMetric metric2;
-		GridGPMProc proc(&metric2, gridSize, gridOffset, 1, param.patchSize, 20, &(param.range));
-
-		proc.RunGridGPMMultiScale(img, corrFileName, param.multiLevelRatio, param.extraLevelN);
-		//if(img.srcR() == NULL) img.GenerateResizedImg(1);
-		//proc.ShowGPMResUI(img, corrFileName, param.distThres);
-
-		cout<<"\r  GPM of "<<m_imgNames[i]<<" complete. File saved to "<<coorName<<".\n";
-	}
-}
 
 void GPMAnalysisProc::GetStatistics(ofstream& fout)
 {
