@@ -53,7 +53,7 @@ void RecoverProc::Recover3()
 	{
 		string fileName = m_imgNames[i];
 		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 6);
-		if(imgPrefix != "004" && imgPrefix != "004") continue;
+		if(imgPrefix != "012" && imgPrefix != "012") continue;
 		cout<<"Handling "<<imgPrefix<<".\n";
 
 		//load source image and param prediction

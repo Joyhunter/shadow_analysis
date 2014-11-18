@@ -39,12 +39,12 @@ int _tmain(int argc, _TCHAR* argv[])
 // 	dProc.DetectCastShadow();
 // 	return 0;
 
-	RecoverProc rProc;
-	rProc.SetFileDir("..//dataset//gpmAnalysis//3//");
-	rProc.Recover3();
+// 	RecoverProc rProc;
+// 	rProc.SetFileDir("..//dataset//gpmAnalysis//3//");
+// 	rProc.Recover3();
 
-// 	SynthesisProc sProc;
-// 	sProc.Test();
+	SynthesisProc sProc;
+	sProc.Test();
 
 
 

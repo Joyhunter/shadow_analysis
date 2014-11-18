@@ -30,8 +30,10 @@ struct SynthesisCfg
 	bool scaleRotateEnabled; // false
 	bool gainBiasEnabled; // false
 	bool randomSearchEnabled; // true
+	float randomSearchDistPunish;
 	float randomSearchScaleFactor; // 0.5
 	float randomSearchRadius; // 0.1 0.2
+	float randomSearchMinRadius;
 
 	//feature
 	float guideImgWeight; // 0.0

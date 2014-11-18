@@ -18,7 +18,7 @@ SynthesisProc::~SynthesisProc(void)
 void SynthesisProc::Test()
 {
 	string fileDir = "..//dataset//gpmAnalysis//3//synthesis//";
-	string imgPrefix = "012";
+	string imgPrefix = "008";
 
 	cvi* srcImg = cvlic(fileDir + imgPrefix + ".png");
 	cvi* holeMask = cvlig(fileDir + imgPrefix + "_hole.png"); cvDilate(holeMask, holeMask, 0, 3);
@@ -34,13 +34,13 @@ void SynthesisProc::Test()
 
 void SynthesisCfg::Init()
 {
-	patchSize = 5;
+	patchSize = 7;
 
 	pymResizeRatio = 0.5f; // 0.5
-	pymLevels = 3; // 5 3
-	cpltItrN = 30; // 2 30
-	cpltItrDecreaseN = 7; // 7 11
-	poissonAlpha = 0.0f; // 0.1
+	pymLevels = 6; // 5 3
+	cpltItrN = 20; // 2 30
+	cpltItrDecreaseN = 3; // 7 11
+	poissonAlpha = 1.0f; // 0.1
 
 	gpmItrN = 6; // 2
 	hFlipEnabled = true; // true
@@ -48,10 +48,12 @@ void SynthesisCfg::Init()
 	scaleRotateEnabled = false; // false
 	gainBiasEnabled = true; // false
 	randomSearchEnabled = true;
-	randomSearchScaleFactor = 0.5f;
-	randomSearchRadius = 1.0f;
+	randomSearchDistPunish = 1.0f;
+	randomSearchScaleFactor = 0.7f;
+	randomSearchRadius = 0.2f;
+	randomSearchMinRadius = 0.01f;
 
-	guideImgWeight = 1.0f; // 0.0
+	guideImgWeight = 100.0f; // 1.0
 }
 
 void SynthesisProc::Synthesis(cvi* _srcImg, cvi* _holeMask, cvi* _resImg, cvi* _legalMask, cvi* _guideImg)
@@ -68,6 +70,17 @@ void SynthesisProc::Synthesis(cvi* _srcImg, cvi* _holeMask, cvi* _resImg, cvi* _
 	DenseCorrSyn* lastLevelRes = NULL;
 	for(int k = 0; k < pymLevels; k++)
 	{
+		
+		if(k == 3)  // 3 4
+		{
+			//pause;
+			cfg.guideImgWeight = 0.1f; //0.1
+			cfg.randomSearchDistPunish = 0.3f; //0.3
+
+			cvi* temp = cvlic("syn//1.png"); cvsi("syn//1_prev.png", temp); cvri(temp);
+			temp = cvlic("syn//img.png"); cvsi("syn//img_prev.png", temp); cvri(temp);
+		}
+
 		//cout<<"Level "<<k<<"...\n";
 
 		//compute new size after resizing
@@ -110,12 +123,12 @@ void SynthesisProc::Synthesis(cvi* _srcImg, cvi* _holeMask, cvi* _resImg, cvi* _
 			lastLevelRes->AddBound(boundW, 0, boundH, 0);
 			lastLevelRes->HandleHoleBoundary(imageData, GPMSynProc::GetRange());
 			//lastLevelRes->Identity();
-			//VoteToCompletion(lastLevelRes, imageData, resImg, patchSize, poissonAlpha);
-			VoteViaLocalCorrection(lastLevelRes, imageData, resImg, patchSize);
+			VoteToCompletion(lastLevelRes, imageData, resImg, patchSize, poissonAlpha);
+			//VoteViaLocalCorrection(lastLevelRes, imageData, resImg, patchSize);
 			cvCopy(resImg, img);
-			lastLevelRes->ShowCorr("1.png");
+			lastLevelRes->ShowCorr("syn//1.png");
 		}
-		cvsi("img.png", img);
+		cvsi("syn//img.png", img);
 		//pause;
 
 		//cvCvtColor(guideImg, guideImg, CV_BGR2Lab);
@@ -130,7 +143,10 @@ void SynthesisProc::Synthesis(cvi* _srcImg, cvi* _holeMask, cvi* _resImg, cvi* _
 			//run gpm
 			GPMSynProc proc(1, patchSize, gpmItrN, NULL);
 			if(dsCor != NULL) 
+			{
+				dsCor->UpdatePatchDistance(imageData);
 				proc.RunGPMWithInitial(imageData, dsCor);
+			}
 			else
 				dsCor = proc.RunGPM(imageData); //dsCor->ShowCorr("1.png");
 
@@ -138,11 +154,11 @@ void SynthesisProc::Synthesis(cvi* _srcImg, cvi* _holeMask, cvi* _resImg, cvi* _
 			//fstream fin("1.txt"); dsCor->Load(fin); fin.close();
 
 			//completion
-			//VoteToCompletion(dsCor, imageData, resImg, patchSize, poissonAlpha);
-			VoteViaLocalCorrection(dsCor, imageData, resImg, patchSize);
+			VoteToCompletion(dsCor, imageData, resImg, patchSize, poissonAlpha);
+			//VoteViaLocalCorrection(dsCor, imageData, resImg, patchSize);
 			cvCopy(resImg, img);
 
-			cvsi("img.png", img); //pause;
+			cvsi("syn//img.png", img); //pause;
 		}
 		//pause;
 		//if(lastLevelRes != NULL) {delete lastLevelRes; lastLevelRes = NULL;}
@@ -187,7 +203,7 @@ void getTextureFeature(cvi* src, int i, int j, int patchOffset, cvS& mean, cvS& 
 }
 void SynthesisProc::VoteViaLocalCorrection(DenseCorrSyn* dsCor, InputImageData& imageData, cvi* resImg, int patchSize)
 {
-	int patchOffset = (patchSize-1) / 2;
+	int patchOffset = 10;//(patchSize-1) / 2;
 
 	//build pyramid
 	int nLevels = 2; float rsRatio = 0.5f; int invRatio = _i(1.f / rsRatio);
@@ -198,16 +214,11 @@ void SynthesisProc::VoteViaLocalCorrection(DenseCorrSyn* dsCor, InputImageData& 
 	doF(k, nLevels+1)
 	{
 		cvi* levelImg = resPrmd.imgs[k]; //continue;
-		if(k != nLevels){
-			resizeRatio *= invRatio;
-			patchOffset /= invRatio;
-			continue;
-		}
 
-		//coarest level
-// 		if(k == nLevels)
-// 		{
-// 			cvCopy(srcPrmd.imgs[k], levelImg); continue;
+// 		if(k != nLevels){
+// 			resizeRatio *= invRatio;
+// 			patchOffset /= invRatio;
+// 			continue;
 // 		}
 
 		//finer levels
@@ -217,15 +228,20 @@ void SynthesisProc::VoteViaLocalCorrection(DenseCorrSyn* dsCor, InputImageData& 
 		{
 			//find correspondence position
 			float ii = getUpperIdx(_f i, resizeRatio), jj = getUpperIdx(_f j, resizeRatio);
-			if(cvg20(imageData.holeMask, ii, jj) == 0) continue;
 			CorrSyn& corr = dsCor->Get(dsCor->GetCorrIdx(_i ii, _i jj));
+			if(cvg20(imageData.holeMask, ii, jj) == 0){corr.x = ii; corr.y = jj;}
 			int corI = _i getLowerIdx(corr.x, resizeRatio), corJ = _i getLowerIdx(corr.y, resizeRatio);
 			
 			//compute mean and variance of non-shadow patch
 			cvS avg1 = cvs(0, 0, 0), sigma1 = cvs(0, 0, 0);
 			getTextureFeature(levelImg, corI, corJ, patchOffset, avg1, sigma1);
+			//avg1 = avg1 * 10 + 128;
+			//sigma1 = sigma1 * 10;
 			cvs2(meanImg, i, j, avg1); cvs2(varianceImg, i, j, sigma1);
 		}
+		cvsi("temp3.png", meanImg);
+		cvsi("temp4.png", varianceImg);// pause;
+		cvsi("temp2.png", levelImg);
 
 		//2. Smooth
 
@@ -235,8 +251,9 @@ void SynthesisProc::VoteViaLocalCorrection(DenseCorrSyn* dsCor, InputImageData& 
 		cvZero(voteSum); cvZero(weight);
 		doFcvi(levelImg, i, j)
 		{
+			//if(i%5!= 0 || j%5!=0) continue;
 			float ii = getUpperIdx(_f i, resizeRatio), jj = getUpperIdx(_f j, resizeRatio);
-			if(cvg20(imageData.holeMask, ii, jj) == 0) continue;
+			//if(cvg20(imageData.holeMask, ii, jj) == 0) continue;
 
 			//get texture feature
 			cvS mean, variance;
@@ -270,6 +287,7 @@ void SynthesisProc::VoteViaLocalCorrection(DenseCorrSyn* dsCor, InputImageData& 
 				cvs2(levelImg, i, j, v / v2.val[0]); //cout<<v2.val[0]<<" ";
 			}
 		}
+		cvsi("temp1.png", levelImg); pause;
 
 		cvri(meanImg); cvri(varianceImg); cvri(voteSum); cvri(weight);
 
@@ -292,6 +310,12 @@ void SynthesisProc::VoteToCompletion(DenseCorrSyn* dsCor, InputImageData& imageD
 	cvi* cnt = cvci323(imageData.src); cvZero(cnt);
 	doFcvi(res, i, j)
 	{
+		if(cvg20(imageData.holeMask, i, j) == 255) continue; 
+		cvs2(res, i, j, cvg2(imageData.guideImg, i, j));
+		cvs2(cnt, i, j, cvs(1, 0, 0));
+	}
+	doFcvi(res, i, j)
+	{
 		if(cvg20(imageData.holeMask, i, j) == 0) continue;
 		//if(!cvIn(i, j, patchOffset, res->height - patchOffset, patchOffset, res->width - patchOffset)) continue;
 		CorrSyn& corr = dsCor->Get(dsCor->GetCorrIdx(i, j));
@@ -308,7 +332,7 @@ void SynthesisProc::VoteToCompletion(DenseCorrSyn* dsCor, InputImageData& imageD
 			int idx = ii * patchSize + jj;
 			int iDel = i + ii - patchOffset, jDel = j + jj - patchOffset;
 			if(!cvIn(iDel, jDel, res)) continue;
-			if(!cvIn(iDel, jDel, imageData.holeMask) || cvg20(imageData.holeMask, iDel, jDel) == 0) continue;
+			if(!cvIn(iDel, jDel, imageData.holeMask)) continue; // || cvg20(imageData.holeMask, iDel, jDel) == 0
 			
 			cvS v = cvg2(res, iDel, jDel); v += patch.pixels[idx];// * corr.gain + corr.bias;
 			cvs2(res, iDel, jDel, v);
@@ -334,21 +358,21 @@ void SynthesisProc::VoteToCompletion(DenseCorrSyn* dsCor, InputImageData& imageD
 	}
 	doFcvi(res, i, j)
 	{
-		if(cvg20(imageData.holeMask, i, j) == 0) continue;
+		//if(cvg20(imageData.holeMask, i, j) == 0) continue;
 		cvs2(res, i, j, cvg2(res, i, j) / cvg2(cnt, i, j).val[0]);
 		cvs2(gradient1, i, j, cvg2(gradient1, i, j) / cvg2(cnt, i, j).val[1]);
 		cvs2(gradient2, i, j, cvg2(gradient2, i, j) / cvg2(cnt, i, j).val[2]);
 	}
 
 	cvCopy(imageData.src, resImg);
-	PossionSolve(imageData.src, imageData.holeMask, resImg, res, gradient1, gradient2, gradientAlpha);
+	//PossionSolve(imageData.src, imageData.holeMask, resImg, res, gradient1, gradient2, gradientAlpha);
 
-// 	doFcvi(resImg, i, j)
-// 	{
-// 		//if(cvg20(imageData.holeMask, i, j) == 0) continue;
-// 		if(cvg2(cnt, i, j).val[0] == 0) continue;
-// 		cvs2(resImg, i, j, cvg2(res, i, j));
-// 	}
+	doFcvi(resImg, i, j)
+	{
+		//if(cvg20(imageData.holeMask, i, j) == 0) continue;
+		if(cvg2(cnt, i, j).val[0] == 0) continue;
+		cvs2(resImg, i, j, cvg2(res, i, j));
+	}
 
 	cvri(res); cvri(cnt); cvri(gradient1); cvri(gradient2);
 }
@@ -855,8 +879,11 @@ GPMSynRange GPMSynProc::GetRange()
 		m_range.setGain(cvs(0.9, 0.9, 0.9), cvs(1.1, 1.1, 1.1));
 		m_range.setBias(cvs(-5, -5, -5), cvs(5, 5, 5));
 
-		m_range.setGain(cvs(0.8, 0.8, 0.8), cvs(1.2, 1.2, 1.2));
-		m_range.setBias(cvs(-13, -13, -13), cvs(13, 13, 13));
+// 		m_range.setGain(cvs(0.8, 0.8, 0.8), cvs(1.2, 1.2, 1.2));
+// 		m_range.setBias(cvs(-13, -13, -13), cvs(13, 13, 13));
+// 
+ 		m_range.setGain(cvs(0.7, 0.7, 0.7), cvs(1.4, 1.4, 1.4));
+ 		m_range.setBias(cvs(-20, -20, -20), cvs(20, 20, 20));
 	}
 	else
 	{
@@ -953,6 +980,7 @@ void GPMSynProc::RunGPMWithInitial(InputImageData& src, DenseCorrSyn* dsCor)
 					x = _i hItvl.min + _i hItvl.max - x;
 					y = _i wItvl.min + _i wItvl.max - y;
 				}
+				//if((kItr % 4 == 1) || (kItr % 4 == 2))
 				if(src.holeMask && cvg20(src.holeMask, x, y) != 255) continue;
 				PatchSyn dstPatch;
 				PatchDistMetricSyn::GetPatch(src, _f x, _f y, 1.f, 0.f, false, false, m_patchOffset, dstPatch);
@@ -963,8 +991,8 @@ void GPMSynProc::RunGPMWithInitial(InputImageData& src, DenseCorrSyn* dsCor)
 			}
 			//cout<<"\nPropSum = "<<propSum<<", RanSum = "<<ranSum<<".\n";
 		}
-		dsCor->ShowCorr("1.png");
-		dsCor->ShowReflect("2.png");
+		dsCor->ShowCorr("syn//1.png");
+		dsCor->ShowReflect("syn//2.png");
 	}
 	//cout<<"\rGPM complete.\n";
 }
@@ -1012,8 +1040,9 @@ int GPMSynProc::Propagate(InputImageData& src, int x, int y, bool direction,
 			PatchSyn srcPatch;
 			PatchDistMetricSyn::GetPatch(src, newX, newY, v.s, v.r, v.hr, v.vr, m_patchOffset, srcPatch);
 			float patchDist = PatchDistMetricSyn::ComputePatchDistHelper(dstPatch, srcPatch, v.bias, v.gain);
+			//patchDist *= SynthesisProc::cfg.randomSearchDistPunish;
 
-			if(patchDist < distThres){
+			if(patchDist * SynthesisProc::cfg.randomSearchDistPunish  < distThres){
 				propSum++;
 				dsCor.AddCoor(x, y, newX, newY, v.s, v.r, v.bias, v.gain, v.hr, v.vr, patchDist);
 				distThres = dsCor.GetDistThres(x, y);
@@ -1044,13 +1073,14 @@ int GPMSynProc::RandomSearch(InputImageData& src, int x, int y,
 		float sSpace = m_range.m_scaleItrl.max - m_range.m_scaleItrl.min;
 		float rSpace = m_range.m_rotateItrl.max - m_range.m_rotateItrl.min;
 
-		hSpace = wSpace * searchRadius; wSpace = hSpace; sSpace *= searchRadius; rSpace *= searchRadius;
+		hSpace = hSpace * searchRadius; wSpace = wSpace * searchRadius; sSpace *= searchRadius; rSpace *= searchRadius;
 
 		vector<float> biasSpace(m_range.m_biasItrl.size());
 		doFv(k, m_range.m_biasItrl) biasSpace[k] = (m_range.m_biasItrl[k].max - m_range.m_biasItrl[k].min) * searchRadius;
 		vector<float> gainSpace(m_range.m_gainItrl.size());
 		doFv(k, m_range.m_gainItrl) gainSpace[k] = (m_range.m_gainItrl[k].max - m_range.m_gainItrl[k].min) * searchRadius;
-		while(hSpace > 1 && wSpace > 1)
+
+		while(hSpace > (hItvl.max - hItvl.min) * SynthesisProc::cfg.randomSearchMinRadius)
 		{
 			//cout<<"\r"<<hSpace<<" "<<wSpace;
 			float newx = clamp(hSpace * (2 * rand1() - 1) + v.x, hItvl.min, hItvl.max);
@@ -1080,7 +1110,7 @@ int GPMSynProc::RandomSearch(InputImageData& src, int x, int y,
 				PatchDistMetricSyn::GetPatch(src, newx, newy, news, newr, newHr, newVr, m_patchOffset, srcPatch);
 				float patchDist = PatchDistMetricSyn::ComputePatchDistHelper(dstPatch, srcPatch, newBias, newGain);
 
-				if(patchDist < distThres * 1.0f){
+				if(patchDist < distThres * SynthesisProc::cfg.randomSearchDistPunish){
 					ranSum++;
 					dsCor.AddCoor(x, y, newx, newy, news, newr, newBias, newGain, newHr, newVr, patchDist);
 					distThres = dsCor.GetDistThres(x, y);
