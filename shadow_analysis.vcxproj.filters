@@ -22,6 +22,12 @@
     <Filter Include="alpha_matting\include">
       <UniqueIdentifier>{7b3352f4-cdde-4fdd-b913-11c2e8f0ffe3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="xml">
+      <UniqueIdentifier>{478ea5aa-193c-460f-9926-722d8f9fe735}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="xml\tinyxml">
+      <UniqueIdentifier>{4ecdb2da-2c31-4666-a18d-1cdd5001799e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="ReadMe.txt" />
@@ -74,6 +80,15 @@
     </ClInclude>
     <ClInclude Include="alpha_matting\include\global.h">
       <Filter>alpha_matting\include</Filter>
+    </ClInclude>
+    <ClInclude Include="xml\XMLDoc.h">
+      <Filter>xml</Filter>
+    </ClInclude>
+    <ClInclude Include="xml\tinyxml\tinystr.h">
+      <Filter>xml\tinyxml</Filter>
+    </ClInclude>
+    <ClInclude Include="xml\tinyxml\tinyxml.h">
+      <Filter>xml\tinyxml</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -133,6 +148,21 @@
     </ClCompile>
     <ClCompile Include="alpha_matting\include\Util.cpp">
       <Filter>alpha_matting\include</Filter>
+    </ClCompile>
+    <ClCompile Include="xml\XMLDoc.cpp">
+      <Filter>xml</Filter>
+    </ClCompile>
+    <ClCompile Include="xml\tinyxml\tinystr.cpp">
+      <Filter>xml\tinyxml</Filter>
+    </ClCompile>
+    <ClCompile Include="xml\tinyxml\tinyxml.cpp">
+      <Filter>xml\tinyxml</Filter>
+    </ClCompile>
+    <ClCompile Include="xml\tinyxml\tinyxmlerror.cpp">
+      <Filter>xml\tinyxml</Filter>
+    </ClCompile>
+    <ClCompile Include="xml\tinyxml\tinyxmlparser.cpp">
+      <Filter>xml\tinyxml</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

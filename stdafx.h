@@ -10,3 +10,5 @@
 #include "../shadow_removal/win_file_header.h"
 
 #include "omp.h"
+#include "xml/XMLDoc.h"
+#pragma comment(lib, "xml/tinyxml/xml.lib")

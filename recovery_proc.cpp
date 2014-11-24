@@ -2,89 +2,184 @@
 #include "recovery_proc.h"
 #include "param_loader.h"
 #include "shadow_analysis.h"
-#include "synthesis_proc.h"
 #include "matrix/matrix.h"
 #pragma comment(lib, "sparsemat.lib")
 
 #include "../shadow_removal/mrf_proc.h"
 #include "../shadow_removal/decmps_proc.h"
 
+//----------------------------- Recovery Configure ----------------------------
+
+void RecoveryCfg::Init()
+{
+	stepEnabled = true;
+
+	//directory
+	srcDir = ".//";
+	paramSubdir = "02_VoteDetection//";
+	resSubdir = "03_VoteRecovery//";
+
+	//focused files
+	focusedPrefix.clear();
+	focusedPrefix.push_back("012");
+
+	//step 1: compute naive res
+	patchsize_naiveRecovery = 1;
+
+	//step 2: synthesis
+	//mask generation
+	shdwDegreeThres_maskGenerate = 0.8f;
+	shdwBoundDilateTimes_maskGenerate = 0.01f;
+	//synthesis
+	SynthesisProc::cfg.Init();
+	gtAsGuidance = false;
+
+	//step 3: local color correction
+	patchRadius_localColorCorrection = 10;
+	correctionStepRatio_localColorCorrection = 0.5f;
+	//pyramid
+	pyramidExtraLevels_pyramid = 3;
+	pyramidResizeRatio_pyramid = 0.5f;
+
+	naiveResImgPostfix = "_naive_res.png";
+	holeMaskImgPostfix = "_syn_hole.png";
+	legalMaskImgPostfix = "_syn_legal.png";
+	synResImgPostfix = "_syn_res.png";
+	corResImgPostfix = "_cor_res.png";
+
+	//origial
+	patchRadius_old = 3;
+}
+
+void RecoveryCfg::InitFromXML(string cfgFile)
+{
+	tixml::XMLDoc doc;
+	if(!doc.Load(cfgFile.c_str())){
+		cout<<cfgFile<<" is missing. exit!\n";
+		return;
+	}
+
+	stepEnabled = (doc.get<int>("recoveryStep.enabled.@val", 0) == 1);
+
+	//directory
+	srcDir = doc.get<string>("srcDir.@val", 0);
+	paramSubdir = doc.get<string>("detectionStep.subDir.@val", 0); 
+	resSubdir = doc.get<string>("recoveryStep.subDir.@val", 0);
+
+	//focused files
+	int num = doc.get<int>("focusedImgs.@num", 0);
+	focusedPrefix.clear();
+	doF(k, num)	focusedPrefix.push_back(doc.get<string>("focusedImgs.focuedPrefix.@val", k));
+
+	//step 1: compute naive res
+	patchsize_naiveRecovery = doc.get<int>("recoveryStep.naiveRecovery.patchSize.@val", 0);
+
+	//step 2: synthesis
+	//mask generation
+	shdwDegreeThres_maskGenerate = doc.get<float>("recoveryStep.maskGenerate.shdwDegreeThres.@val", 0);
+	shdwBoundDilateTimes_maskGenerate = doc.get<float>("recoveryStep.maskGenerate.shdwBoundDilateTimes.@val", 0);
+	//synthesis
+	gtAsGuidance = (doc.get<int>("recoveryStep.synthesis.gtAsGuidance.@val", 0) == 1);
+
+	//step 3: local color correction
+	patchRadius_localColorCorrection = doc.get<int>("recoveryStep.localColorCorrection.patchRadius.@val", 0);
+	correctionStepRatio_localColorCorrection = doc.get<float>("recoveryStep.localColorCorrection.correctionStepRatio.@val", 0);
+	//pyramid
+	pyramidExtraLevels_pyramid = doc.get<int>("recoveryStep.localColorCorrection.pyramid.extraLevels.@val", 0);
+	pyramidResizeRatio_pyramid = doc.get<float>("recoveryStep.localColorCorrection.pyramid.resizeRatio.@val", 0);
+
+	naiveResImgPostfix = doc.get<string>("recoveryStep.naiveRecovery.resPostfix.@val", 0);
+	holeMaskImgPostfix = doc.get<string>("recoveryStep.maskGenerate.holeMaskImgPostfix.@val", 0);
+	legalMaskImgPostfix = doc.get<string>("recoveryStep.maskGenerate.legalMaskImgPostfix.@val", 0);
+	synResImgPostfix = doc.get<string>("recoveryStep.synthesis.resPostfix.@val", 0);
+	corResImgPostfix = doc.get<string>("recoveryStep.localColorCorrection.resPostfix.@val", 0);
+
+	//origial
+	patchRadius_old = doc.get<int>("recoveryStep.patchRadius_old.@val", 0);
+
+	SynthesisProc::cfg.InitFromXML(cfgFile);
+
+// 	cout<<patchsize_naiveRecovery<<" "<<shdwDegreeThres_maskGenerate<<" "<<shdwBoundDilateTimes_maskGenerate<<" "<<patchRadius_localColorCorrection
+// 		<<" "<<correctionStepRatio_localColorCorrection<<" "<<pyramidExtraLevels_pyramid<<" "<<pyramidResizeRatio_pyramid<<" "
+// 		<<patchRadius_old;
+}
+
+//----------------------------- Set Configure File -----------------------------
+
+RecoveryCfg RecoverProc::cfg;
+
 RecoverProc::RecoverProc(void)
 {
+	cfg.Init();
 }
 
 RecoverProc::~RecoverProc(void)
 {
 }
 
-void RecoverProc::SetFileDir(string fileDir)
+void RecoverProc::LoadCfg(string cfgFile)
 {
-	m_fileDir = fileDir;
-	m_ParamDir = "02_Detection//"; // VoteParam PredictParam
-	m_ResultDir = "03_Recovery//";
-
- 	m_ParamDir = "02_VoteDetection//"; // VoteParam PredictParam
- 	m_ResultDir = "03_VoteRecovery//";
-
-	m_patchRadius = 3;
+	cfg.InitFromXML(cfgFile);
 }
 
-void RecoverProc::GetScript()
-{
-	ofstream fout("test.bat");
-	doFv(i, m_imgNames)
-	{
-		string fileName = m_imgNames[i];
-		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 6);
-		//fout<<"PMRefImpl.exe rgb8 "<<imgPrefix<<"__.png "<<imgPrefix<<"res.png -hole_mask "<<imgPrefix<<"__m.png"
-			//<<" -init_guess_image "<<imgPrefix<<"__r4.png -em_iters_min 50 -em_iters_final 50 -min_coarse_size 75\n";
-		fout<<"PMRefImpl.exe rgb8 "<<imgPrefix<<"__r3.png "<<imgPrefix<<"__c3.png -hole_mask ..//"<<imgPrefix<<"__r3.png"
-			<<" -init_guess_image "<<imgPrefix<<"__r1.png -em_iters_min 50 -em_iters_final 50 -min_coarse_size 75\n";
-	}
-	fout.close();
-}
+//----------------------------- Recovery ----------------------------------------
 
 void RecoverProc::Recover3()
 {
-	wGetDirFiles(m_fileDir + "*_n.png", m_imgNames);
-	wMkDir(m_fileDir + m_ResultDir);
-
+	cout<<"-- Begin Recovery --\n";
+	wMkDir(cfg.srcDir + cfg.resSubdir);
+	wGetDirFiles(cfg.srcDir + "*.png", m_imgNames);
+	
 	doFv(i, m_imgNames)
 	{
 		string fileName = m_imgNames[i];
-		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 6);
-		if(imgPrefix != "012" && imgPrefix != "012") continue;
-		cout<<"Handling "<<imgPrefix<<".\n";
+		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 4);
+		if(imgPrefix.size() >= 2 && imgPrefix.substr(imgPrefix.size()-2, 2) == "_n") continue;
+		if(cfg.focusedPrefix.size() > 0 && find(cfg.focusedPrefix.begin(), cfg.focusedPrefix.end(), imgPrefix) == cfg.focusedPrefix.end())
+			continue;
+		cout<<"Processing "<<imgPrefix<<".png..\n";
 
 		//load source image and param prediction
-		cvi* srcImg = cvlic(m_fileDir + imgPrefix + ".png");
-		cvi* freeImg = cvlic(m_fileDir + imgPrefix + "_n.png");
-		cvi* param = ParamLoader::LoadParamFromDir(m_fileDir + m_ParamDir, imgPrefix);
+		cvi* srcImg = cvlic(cfg.srcDir + imgPrefix + ".png");
+		cvi* freeImg = cvlic(cfg.srcDir + imgPrefix + "_n.png");
+		cvi* param = ParamLoader::LoadParamFromDir(cfg.srcDir + cfg.paramSubdir, imgPrefix);
 
 // 		cvi* param = cvci323(srcImg);
 // 		cvResize(_param, param);
 
 		//Step 1: Get naive recovery result
-		cvi* naiveRes = ImgRecoverNaive(srcImg, param, 1);
-		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_naive_res.png", naiveRes);
+		cout<<"Start step 1: get naive result..";
+		cvi* naiveRes = ImgRecoverNaive(srcImg, param, cfg.patchsize_naiveRecovery);
+		if(cfg.naiveResImgPostfix != "") cvsi(cfg.srcDir + cfg.resSubdir + imgPrefix + cfg.naiveResImgPostfix, naiveRes);
+		cout<<"\r                                   \rStep 1: Naive result got.\n";
 
 		//cvi* localRes = cvlic(m_fileDir + m_ResultDir + imgPrefix + "_syn_res.png");
 		//Step 2: Get Patch Synthesis result
+		cout<<"Generating shadow hole and legal mask..";
 		cvi* holeMask = cvci81(srcImg), *legalMask = cvci81(srcImg);
-		GenerateMaskFromParam(param, holeMask, legalMask, 0.8f, 0.03f);
+		GenerateMaskFromParam(param, holeMask, legalMask, cfg.shdwDegreeThres_maskGenerate, cfg.shdwBoundDilateTimes_maskGenerate);
+		if(cfg.holeMaskImgPostfix != "") cvsi(cfg.srcDir + cfg.resSubdir + imgPrefix + cfg.holeMaskImgPostfix, holeMask);
+		if(cfg.legalMaskImgPostfix != "") cvsi(cfg.srcDir + cfg.resSubdir + imgPrefix + cfg.legalMaskImgPostfix, legalMask);
+		cout<<"\rStart step 2: Hole and legal mask got, start synthesis...\n";
 		SynthesisProc sProc;
 		cvi* synRes = cvci(srcImg);
-		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_syn_hole.png", holeMask);
-		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_syn_legal.png", legalMask);
-		sProc.Synthesis(srcImg, holeMask, synRes, legalMask, naiveRes); // naiveRes localRes
-		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_syn_res.png", synRes);
+		if(cfg.gtAsGuidance && freeImg) sProc.Synthesis(srcImg, holeMask, synRes, legalMask, freeImg);
+		else
+		{
+			if(cfg.gtAsGuidance && !freeImg) cout<<"Free image load failed, use naive res as guidance.\n";
+			sProc.Synthesis(srcImg, holeMask, synRes, legalMask, naiveRes);
+		}
+		if(cfg.synResImgPostfix != "") cvsi(cfg.srcDir + cfg.resSubdir + imgPrefix + cfg.synResImgPostfix, synRes);
+		cout<<"\rStep 2: Synthesis result got.\n";
 // 		cvi* synRes = cvlic(m_fileDir + m_ResultDir + imgPrefix + "_syn_res.png");
 // 		cvi* naiveRes = cvlic(m_fileDir + m_ResultDir + imgPrefix + "_naive_res.png");
 // 		cvi* holeMask = NULL; cvi* param = NULL; cvi* legalMask = NULL;
 
 		//Step 3: Local color correction
+		cout<<"Start step 3: local color correction..";
 		cvi* corRes = LocalColorCorrection(naiveRes, synRes, holeMask);
-		cvsi(m_fileDir + m_ResultDir + imgPrefix + "_cor_res.png", corRes);
+		if(cfg.corResImgPostfix != "") cvsi(cfg.srcDir + cfg.resSubdir + imgPrefix + cfg.corResImgPostfix, corRes);
+		cout<<"\r                                       \rStep 3: Correction result got.\n";
 
 		cvri(srcImg); cvri(param); cvri(naiveRes); cvri(synRes); cvri(freeImg); //cvri(localRes);
 		cvri(holeMask); cvri(legalMask); cvri(corRes);
@@ -192,14 +287,15 @@ cvi* RecoverProc::GetCorCpltPixels(cvi* _naiveRes, cvi* _synRes)
 
 cvi* RecoverProc::LocalColorCorrection(cvi* _naiveRes, cvi* _synRes, cvi* _holeMask)
 {	
-	int patchRadius = 10;
+	int patchRadius = cfg.patchRadius_localColorCorrection;
 
 	//get correct completion pixels
 	cvi* cpltMask = GetCorCpltPixels(_naiveRes, _synRes);
-	cvsi("4.png", cpltMask);
+	//cvsi("4.png", cpltMask);
 
 	//build pyramid
-	int nLevels = 3; float rsRatio = 0.5f;
+	int nLevels = cfg.pyramidExtraLevels_pyramid;
+	float rsRatio = cfg.pyramidResizeRatio_pyramid;
 	ImgPrmd naivePrmd(_naiveRes, nLevels, rsRatio), synPrmd(_synRes, nLevels, rsRatio);
 
 	doF(k, nLevels+1)
@@ -208,12 +304,12 @@ cvi* RecoverProc::LocalColorCorrection(cvi* _naiveRes, cvi* _synRes, cvi* _holeM
 		cvi* holeMask = NULL; if(_holeMask){holeMask = cvci81(naiveRes); cvResize(_holeMask, holeMask);}
 
 		cvi* corRes = LocalColorCorrectionSingleLevel(naiveRes, synRes, holeMask, patchRadius);
-		cvsi("1.png", naiveRes); cvsi("2.png", synRes); cvsi("3.png", corRes); //pause;
+		//cvsi("1.png", naiveRes); cvsi("2.png", synRes); cvsi("3.png", corRes); //pause;
 
 		cvCopy(corRes, naiveRes); cvri(corRes);		
 		cvri(holeMask);
 
-		patchRadius = max2(patchRadius / 2, 1); 
+		patchRadius = max2(_i (_f patchRadius * rsRatio), 1); 
 	}
 
 	cvi* corRes = naivePrmd.Flatten();
@@ -228,7 +324,7 @@ cvi* RecoverProc::LocalColorCorrectionSingleLevel(cvi* naiveRes, cvi* synRes, cv
 {
 	cvi* corRes = cvci(naiveRes); //cvZero(corRes);
 
-	int step = max2(patchRadius / 2, 1);
+	int step = max2(_i(patchRadius * cfg.correctionStepRatio_localColorCorrection), 1);
 
 	cvi* voteSum = cvci323(corRes), *weight = cvci321(corRes);
 	cvZero(voteSum); cvZero(weight);
@@ -288,6 +384,8 @@ cvi* RecoverProc::LocalColorCorrectionSingleLevel(cvi* naiveRes, cvi* synRes, cv
 	return corRes;
 }
 
+
+//----------------------------- Image Pyramid ----------------------------------------
 
 ImgPrmd::ImgPrmd(cvi* img, int levels, float ratio)
 {
@@ -528,8 +626,9 @@ cvi* RecoverProc::GetBestParam(IN cvi* src, IN cvi* mask, IN cvi* cpImg, OUT cvS
 	return res;
 }
 
+//-----------------------------------------------------------------------------------
 
-
+//currently not use
 cvi* RecoverProc::BoundarySmooth(cvi* srcImg, cvi* smoothParam, cvi* &shadowMask, float Lthres, float r1, float r2)
 {
 	//get boundary Mask
@@ -635,8 +734,8 @@ cvi* RecoverProc::ImgRecoverPoisson(cvi* srcImg, cvi* param)
 
 	cvi* paramResize = cvci323(srcImg);
 	cvResize(param, paramResize);
-	cvSmooth(paramResize, paramResize, 1, 2*m_patchRadius+1, 2*m_patchRadius+1);
-	m_patchRadius = 0;
+	cvSmooth(paramResize, paramResize, 1, 2*cfg.patchRadius_old+1, 2*cfg.patchRadius_old+1);
+	cfg.patchRadius_old = 0;
 
 	cvCvtColor(srcImg, srcImg, CV_BGR2Lab);
 
@@ -756,6 +855,35 @@ void RecoverProc::PoissonSmooth(cvi* srcImg, cvi* mask)
 
 	cvCvtColor(srcImg, srcImg, CV_Lab2BGR);
 }
+
+//abandoned
+void RecoverProc::SetFileDir(string fileDir)
+{
+// 	m_fileDir = fileDir;
+// 	m_ParamDir = "02_Detection//"; // VoteParam PredictParam
+// 	m_ResultDir = "03_Recovery//";
+// 
+// 	m_ParamDir = "02_VoteDetection//"; // VoteParam PredictParam
+// 	m_ResultDir = "03_VoteRecovery//";
+// 
+// 	m_patchRadius = 3;
+}
+
+void RecoverProc::GetScript()
+{
+	ofstream fout("test.bat");
+	doFv(i, m_imgNames)
+	{
+		string fileName = m_imgNames[i];
+		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 6);
+		//fout<<"PMRefImpl.exe rgb8 "<<imgPrefix<<"__.png "<<imgPrefix<<"res.png -hole_mask "<<imgPrefix<<"__m.png"
+		//<<" -init_guess_image "<<imgPrefix<<"__r4.png -em_iters_min 50 -em_iters_final 50 -min_coarse_size 75\n";
+		fout<<"PMRefImpl.exe rgb8 "<<imgPrefix<<"__r3.png "<<imgPrefix<<"__c3.png -hole_mask ..//"<<imgPrefix<<"__r3.png"
+			<<" -init_guess_image "<<imgPrefix<<"__r1.png -em_iters_min 50 -em_iters_final 50 -min_coarse_size 75\n";
+	}
+	fout.close();
+}
+
 
 
 /*

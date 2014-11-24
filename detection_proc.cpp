@@ -33,7 +33,7 @@ void DetectionProc::DetectCastShadow()
 		//get image prefix
 		string fileName = m_imgNames[i];
 		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 6);
-		if(imgPrefix != "004") continue;
+		if(imgPrefix != "3") continue;
 		cout<<"Handling "<<imgPrefix<<".\n";
 
 		//load source image and param prediction
@@ -72,7 +72,7 @@ cvi* DetectionProc::DetectCastShadow(cvi* srcImg, cvi* param)
 
 	//cvi* smoothSrc = cvci(srcImg);
 	//cvSmooth(srcImg, smoothSrc, 2, 31, 31);
-	smoothParam = MattingSmooth(srcImg, smoothParam, 0.8f, 15, 10);
+	smoothParam = MattingSmooth(srcImg, smoothParam, 0.8f, 3, 5);
 
 	//Test
 	resImg = RecoverProc::ImgRecoverNaive(srcImg, smoothParam, 1);

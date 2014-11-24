@@ -7,7 +7,44 @@
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	
+
+	string cfgFile = "cfg.xml";
+	//LoadCfgFile();
+
+// 	GPMAnalysisProc gProc;
+// 	//gProc.SetFileDir("..//dataset//gpmAnalysis//2//");
+// 	gProc.SetFileDir(".//");
+// 	gProc.ShdwAnlysis();
+// 	//gProc.VoteAnalysis();
+// 	return 0;
+
+// 	DetectionProc dProc;
+// 	dProc.SetFileDir("..//dataset//gpmAnalysis//5//");
+// 	dProc.DetectCastShadow();
+// 	return 0;
+
+	RecoverProc rProc;
+	rProc.LoadCfg(cfgFile);
+	//rProc.SetFileDir("..//dataset//gpmAnalysis//3//");
+	if(rProc.cfg.stepEnabled) rProc.Recover3();
+
+// 	SynthesisProc sProc;
+// 	sProc.Test();
+
+
+
+	return 0;
+}
+
+
+// 	proc.AddFileDir("..//dataset//myData//indoor//1//");
+// 	proc.AddFileDir("..//dataset//otherData//indoor//");
+// 	proc.AddFileDir("..//dataset//otherData//outdoor//");
+// 	proc.AddFileDir("..//dataset//myData//indoor//2//");
+// 	proc.AddFileDir("..//dataset//myData//outdoor//1//");
+// 	proc.AddFileDir("..//dataset//myData//outdoor//2//");
+
+
 // 	cvi* test = cvlic("316__v2.png");
 // 	
 // 	cvi* src2 = cvci81(test);
@@ -35,26 +72,6 @@ int _tmain(int argc, _TCHAR* argv[])
 // 	return 0;
 
 // 	DetectionProc dProc;
-// 	dProc.SetFileDir("..//dataset//gpmAnalysis//3//");
+// 	dProc.SetFileDir("..//dataset//gpmAnalysis//5//");
 // 	dProc.DetectCastShadow();
 // 	return 0;
-
-// 	RecoverProc rProc;
-// 	rProc.SetFileDir("..//dataset//gpmAnalysis//3//");
-// 	rProc.Recover3();
-
-	SynthesisProc sProc;
-	sProc.Test();
-
-
-
-	return 0;
-}
-
-
-// 	proc.AddFileDir("..//dataset//myData//indoor//1//");
-// 	proc.AddFileDir("..//dataset//otherData//indoor//");
-// 	proc.AddFileDir("..//dataset//otherData//outdoor//");
-// 	proc.AddFileDir("..//dataset//myData//indoor//2//");
-// 	proc.AddFileDir("..//dataset//myData//outdoor//1//");
-// 	proc.AddFileDir("..//dataset//myData//outdoor//2//");

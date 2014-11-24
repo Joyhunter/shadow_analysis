@@ -18,27 +18,46 @@ struct SynthesisCfg
 
 	//synthesis
 	float pymResizeRatio; // 0.5
-	int pymLevels; // 5
-	int cpltItrN; // 2
-	int cpltItrDecreaseN; 
-	float poissonAlpha; // 0.1
+	float pymMinWidth;
+	float pymStep2StartWidth;
+	int cpltItrNMax, cpltItrNMin;
 
 	//gpm
 	int gpmItrN; // 2
 	bool hFlipEnabled; // true
 	bool vFlipEnabled; // true
+
 	bool scaleRotateEnabled; // false
+	float scaleItvlMin, scaleItvlMax;
+	float rotateItvlMin, rotateItvlMax;
+
 	bool gainBiasEnabled; // false
+	cvS gainItvlMin, gainItvlMax;
+	cvS biasItvlMin, biasItvlMax;
 	bool randomSearchEnabled; // true
-	float randomSearchDistPunish;
+
 	float randomSearchScaleFactor; // 0.5
 	float randomSearchRadius; // 0.1 0.2
 	float randomSearchMinRadius;
 
-	//feature
+	//trick
+	float randomSearchDistPunish;
 	float guideImgWeight; // 0.0
+	float randomSearchDistPunishStep2;
+	float guideImgWeightStep2;
+
+	//debug
+	bool debugImgsOutput;
+	string debugImgsOutputDir;
+
+	//abandon
+	int pymLevels; // 5
+	int cpltItrN; // 2
+	int cpltItrDecreaseN; 
+	float poissonAlpha; // 0.1
 
 	void Init();
+	void InitFromXML(string cfgFile);
 };
 
 class SynthesisProc
@@ -50,6 +69,8 @@ public:
 	~SynthesisProc(void);
 
 	void Synthesis(cvi* srcImg, cvi* holeMask, cvi* resImg, cvi* legalMask = NULL, cvi* guideImg = NULL);
+	//orignal version
+	void Synthesis2(cvi* srcImg, cvi* holeMask, cvi* resImg, cvi* legalMask = NULL, cvi* guideImg = NULL);
 
 	void Test();
 
@@ -62,6 +83,9 @@ private:
 	void VoteViaLocalCorrection(DenseCorrSyn* dsCor, InputImageData& imageData, cvi* resImg, int patchSize);	
 
 	void PossionSolve(cvi* srcImg, cvi* holeImg, cvi* resImg, cvi* resConstrain, 
+		cvi* gradientConstrainV, cvi* gradientConstrainH, float gradientAlpha = 1);
+	//abandoned
+	void PossionSolve2(cvi* srcImg, cvi* holeImg, cvi* resImg, cvi* resConstrain, 
 		cvi* gradientConstrainV, cvi* gradientConstrainH, float gradientAlpha = 1);
 
 
@@ -160,6 +184,7 @@ public:
 	void RandomInitialize(InputImageData& imgData, GPMSynRange& range);
 	void UpdatePatchDistance(InputImageData& imgData);
 	void ShowCorr(string imgStr);
+	cvi* ShowCorr();
 	void ShowReflect(string imgStr);
 	void ShowCorrDist(string imgStr);
 	int GetCorrIdx(int r, int c){
@@ -175,6 +200,7 @@ public:
 	void Save(ostream& fout);
 	void Load(istream& fin);
 	void LevelUp(int ratio = 2);
+	void LevelUpTo(int newW, int newH);
 	void AddBound(int w1, int w2, int h1, int h2);
 	void HandleHoleBoundary(InputImageData& imgData, GPMSynRange& range);
 public:

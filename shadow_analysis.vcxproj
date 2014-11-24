@@ -94,6 +94,9 @@
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="synthesis_proc.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="xml\tinyxml\tinystr.h" />
+    <ClInclude Include="xml\tinyxml\tinyxml.h" />
+    <ClInclude Include="xml\XMLDoc.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\shadow_removal\decmps_proc.cpp" />
@@ -118,6 +121,11 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="synthesis_proc.cpp" />
+    <ClCompile Include="xml\tinyxml\tinystr.cpp" />
+    <ClCompile Include="xml\tinyxml\tinyxml.cpp" />
+    <ClCompile Include="xml\tinyxml\tinyxmlerror.cpp" />
+    <ClCompile Include="xml\tinyxml\tinyxmlparser.cpp" />
+    <ClCompile Include="xml\XMLDoc.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="shadow_analysis.rc" />

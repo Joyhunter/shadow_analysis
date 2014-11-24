@@ -1,0 +1,76 @@
+<?xml version="1.0" ?>
+<root name="root">
+	<srcDir val = "..//dataset//gpmAnalysis//3//" />
+
+	<focusedImgs num = "2" >
+		<focuedPrefix val = "004" />
+		<focuedPrefix val = "105" />
+	</focusedImgs>
+
+	<detectionStep>
+		<enabled val = "1" />
+		<subDir val = "02_VoteDetection//" />
+	</detectionStep>
+
+	<recoveryStep>
+		<enabled val = "1" />
+		<subDir val = "03_VoteRecovery//" />
+		
+		<naiveRecovery>
+			<patchSize val = "1" />
+			<resPostfix val = "_naive_res.png" />
+		</naiveRecovery>
+
+		<maskGenerate>
+			<shdwDegreeThres val = "0.8" />
+			<shdwBoundDilateTimes val = "0.01" />
+			<holeMaskImgPostfix val = "_syn_hole.png" />
+			<legalMaskImgPostfix val = "_syn_legal.png" />
+		</maskGenerate>
+
+		<synthesis>
+			<patchSize val = "5" />
+			<pym>
+				<minWidth val = "19.0" valStep2 = "75.0"/>
+				<resizeRatio val = "0.5" />
+				<cpltItrlN max = "2" min = "2" />
+			</pym>
+			<gpm>
+				<itrlN val = "6" />
+				<flipEnabled h = "1" v = "1" />
+				<scaleRotate enabled = "0">
+					<scale min = "0.67" max = "1.5" />
+					<rotate min = "-1.05" max = "1.05" />
+				</scaleRotate>
+				<gainBias enabled = "1">
+					<gain min = "0.9" max = "1.1" />
+					<bias min = "-5" max = "5" />
+				</gainBias>
+				<randomSearch enabled = "1">
+					<radius val = "0.2" />
+					<minRadius val = "0.01" />
+					<scaleFactor val = "0.5" />
+				</randomSearch>
+				<debugResult output = "1" dir = "syn//" />
+			</gpm>
+			<rmPunish val1 = "1.0" val2 = "0.3" />
+			<guidanceWeight val1 = "1000.0" val2 = "0.1" />
+			<gtAsGuidance val = "0" />
+			<poissonAlpha val = "1000" />
+			<resPostfix val = "_syn_res.png" />
+		</synthesis>
+
+		<localColorCorrection>
+			<patchRadius val = "10" />
+			<correctionStepRatio val = "0.5" />
+			<pyramid>
+				<extraLevels val = "3" />
+				<resizeRatio val = "0.5" />
+			</pyramid>
+			<resPostfix val = "_cor_res.png" />
+		</localColorCorrection> 
+
+		<patchRadius_old val = "3" />
+	</recoveryStep>
+
+</root>

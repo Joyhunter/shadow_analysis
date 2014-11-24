@@ -1,4 +1,47 @@
 #pragma once
+#include "synthesis_proc.h"
+
+struct RecoveryCfg
+{
+	//enabled
+	bool stepEnabled;
+
+	//directory
+	string srcDir;
+	string paramSubdir;
+	string resSubdir;
+
+	//focused files
+	vector<string> focusedPrefix;
+
+	//step 1: compute naive res
+	string naiveResImgPostfix;
+	int patchsize_naiveRecovery;
+
+	//step 2: synthesis
+	//mask generation
+	float shdwDegreeThres_maskGenerate;
+	float shdwBoundDilateTimes_maskGenerate;
+	string holeMaskImgPostfix, legalMaskImgPostfix;
+	//synthesis
+	//SynthesisCfg synCfg;
+	bool gtAsGuidance;
+	string synResImgPostfix;
+
+	//step 3: local color correction
+	int patchRadius_localColorCorrection;
+	float correctionStepRatio_localColorCorrection;
+	string corResImgPostfix;
+	//pyramid
+	int pyramidExtraLevels_pyramid;
+	float pyramidResizeRatio_pyramid;
+
+	//origial
+	int patchRadius_old;
+
+	void Init();
+	void InitFromXML(string cfgFile);
+};
 
 struct ImgPrmd
 {
@@ -15,7 +58,7 @@ public:
 	RecoverProc(void);
 	~RecoverProc(void);
 
-	void SetFileDir(string fileDir);
+	void LoadCfg(string cfgFile);
 
 	//void Recover();
 	//void Recover2();
@@ -24,6 +67,7 @@ public:
 	//naive direct compute result
 	static cvi* ImgRecoverNaive(cvi* srcImg, cvi* param, int patchSize = 7);
 
+	static RecoveryCfg cfg;
 
 private:
 
@@ -53,15 +97,14 @@ private:
 	cvi* GetBestParam(IN cvi* src, IN cvi* mask, IN cvi* cpImg, OUT cvS& param);
 	cvi* GetBestParamLapPymd(IN cvi* src, IN cvi* mask, IN cvi* cpImg, OUT cvS& param);
 
+	//abandon
+	void SetFileDir(string fileDir);
 	void GetScript();
 
 private:
 
-	string m_fileDir;
+
 	vector<string> m_imgNames;
 
-	string m_ParamDir;
-	string m_ResultDir;
-	int m_patchRadius;
 };
 
