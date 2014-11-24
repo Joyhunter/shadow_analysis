@@ -8,6 +8,7 @@
 #include "../shadow_removal/stl_header.h"
 #include "../shadow_removal/opencv_header.h"
 #include "../shadow_removal/win_file_header.h"
+#include "../shadow_removal/console_header.h"
 
 #include "omp.h"
 #include "xml/XMLDoc.h"

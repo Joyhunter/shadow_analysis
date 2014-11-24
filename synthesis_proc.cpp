@@ -66,6 +66,7 @@ void SynthesisCfg::Init()
 	//debug
 	bool debugImgsOutput = true;
 	string debugImgsOutputDir = "syn//";
+	cvShowResult = false;
 
 	//abandon
 	pymLevels = 6; // 5 3
@@ -116,8 +117,9 @@ void SynthesisCfg::InitFromXML(string cfgFile)
 	guideImgWeightStep2 = doc.get<float>(prefix + "guidanceWeight.@val2", 0);
 
 	//debug
-	debugImgsOutput = (doc.get<int>(prefix + "gpm.debugResult.@output", 0) == 1);
-	debugImgsOutputDir = doc.get<string>(prefix + "gpm.debugResult.@dir", 0);
+	debugImgsOutput = (doc.get<int>(prefix + "debug.debugResult.@output", 0) == 1);
+	debugImgsOutputDir = doc.get<string>(prefix + "debug.debugResult.@dir", 0);
+	cvShowResult = (doc.get<int>(prefix + "debug.cvShowResult.@val", 0) == 1);
 
 }
 
@@ -144,9 +146,22 @@ void SaveCorrImgs(DenseCorrSyn* corr, cvi* res)
 	cvri(temp);
 }
 
+void ShowCorrImgs(DenseCorrSyn* corr, cvi* res, string s1, string s2)
+{
+	if(corr)
+	{
+		cvi* temp2 = corr->ShowCorr();
+		cvShowImage(s1.c_str(), temp2);
+		cvri(temp2);
+	}
+	if(res) cvShowImage(s2.c_str(), res);
+	cvWaitKey(1);
+}
+
 void SynthesisProc::Synthesis(cvi* _srcImg, cvi* _holeMask, cvi* _resImg, cvi* _legalMask, cvi* _guideImg)
 {
 	if(cfg.debugImgsOutput) wMkDir(cfg.debugImgsOutputDir);
+	if(cfg.cvShowResult){ cvNamedWindow("Corr"); cvNamedWindow("Res");}
 
 	//get params
 	int patchSize = cfg.patchSize;
@@ -211,12 +226,13 @@ void SynthesisProc::Synthesis(cvi* _srcImg, cvi* _holeMask, cvi* _resImg, cvi* _
 		}
 		if(cfg.debugImgsOutput) SaveCorrImgs(lastLevelRes, img);
 		if(cfg.debugImgsOutput) cvsi(cfg.debugImgsOutputDir + "img.png", img);
+		if(cfg.cvShowResult) ShowCorrImgs(lastLevelRes, img, "Corr", "Res");
 
 		//completion iteration
 		DenseCorrSyn* dsCor = lastLevelRes;
 		for(int l = 0; l < cptlItrNPerLevel[k]; l++)
 		{
-			cout<<"\rSyn: Level = "<<k<<", Completion Iteration = "<<l<<"...";
+			COutput("\rSyn: Level = " + toStr(k) + ", Completion Iteration = " + toStr(l) + "...", CC_DARKGREEN);
 			GPMSynProc proc(1, patchSize, gpmItrN, NULL);
 			if(dsCor != NULL) 
 			{
@@ -227,17 +243,19 @@ void SynthesisProc::Synthesis(cvi* _srcImg, cvi* _holeMask, cvi* _resImg, cvi* _
 				dsCor = proc.RunGPM(imageData);
 			VoteToCompletion(dsCor, imageData, resImg, patchSize, cfg.poissonAlpha);
 			cvCopy(resImg, img);
-			SaveCorrImgs(dsCor, img);
+			if(cfg.debugImgsOutput) SaveCorrImgs(dsCor, img);
 			if(cfg.debugImgsOutput) cvsi(cfg.debugImgsOutputDir + "img.png", img);
+			if(cfg.cvShowResult) ShowCorrImgs(dsCor, img, "Corr", "Res");
 		}//pause;
 		lastLevelRes = dsCor;
 
 		if(img->width == _resImg->width) cvCopy(img, _resImg);
 		cvri(img); cvri(holeMask); cvri(legalMask); cvri(guideImg); cvri(resImg);
 	}
-	cout<<"\rSynthesis complete...";
+	COutGreen("\r                                             \rSynthesis complete...");
 
 	if(lastLevelRes != NULL){delete lastLevelRes; lastLevelRes = NULL;}
+	if(cfg.cvShowResult){ cvDestroyAllWindows();}
 }
 
 //original version, only support int resize ratio

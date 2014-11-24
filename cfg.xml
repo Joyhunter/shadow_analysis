@@ -51,13 +51,16 @@
 					<minRadius val = "0.01" />
 					<scaleFactor val = "0.5" />
 				</randomSearch>
-				<debugResult output = "1" dir = "syn//" />
 			</gpm>
 			<rmPunish val1 = "1.0" val2 = "0.3" />
 			<guidanceWeight val1 = "1000.0" val2 = "0.1" />
 			<gtAsGuidance val = "0" />
 			<poissonAlpha val = "1000" />
 			<resPostfix val = "_syn_res.png" />
+			<debug>
+				<debugResult output = "1" dir = "syn//" />
+				<cvShowResult val = "1" />
+			</debug>
 		</synthesis>
 
 		<localColorCorrection>

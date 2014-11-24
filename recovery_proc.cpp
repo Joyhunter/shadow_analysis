@@ -126,7 +126,7 @@ void RecoverProc::LoadCfg(string cfgFile)
 
 void RecoverProc::Recover3()
 {
-	cout<<"-- Begin Recovery --\n";
+	COutYel("-- Recovery --\n");
 	wMkDir(cfg.srcDir + cfg.resSubdir);
 	wGetDirFiles(cfg.srcDir + "*.png", m_imgNames);
 	
@@ -137,7 +137,7 @@ void RecoverProc::Recover3()
 		if(imgPrefix.size() >= 2 && imgPrefix.substr(imgPrefix.size()-2, 2) == "_n") continue;
 		if(cfg.focusedPrefix.size() > 0 && find(cfg.focusedPrefix.begin(), cfg.focusedPrefix.end(), imgPrefix) == cfg.focusedPrefix.end())
 			continue;
-		cout<<"Processing "<<imgPrefix<<".png..\n";
+		COutTeal("Processing " + imgPrefix + ".png..\n");
 
 		//load source image and param prediction
 		cvi* srcImg = cvlic(cfg.srcDir + imgPrefix + ".png");
@@ -148,38 +148,38 @@ void RecoverProc::Recover3()
 // 		cvResize(_param, param);
 
 		//Step 1: Get naive recovery result
-		cout<<"Start step 1: get naive result..";
+		COutput("Start step 1: get naive result..", CC_DARKGREEN);
 		cvi* naiveRes = ImgRecoverNaive(srcImg, param, cfg.patchsize_naiveRecovery);
 		if(cfg.naiveResImgPostfix != "") cvsi(cfg.srcDir + cfg.resSubdir + imgPrefix + cfg.naiveResImgPostfix, naiveRes);
-		cout<<"\r                                   \rStep 1: Naive result got.\n";
+		COutGreen("\r                                   \rStep 1: Naive result got.\n");
 
 		//cvi* localRes = cvlic(m_fileDir + m_ResultDir + imgPrefix + "_syn_res.png");
 		//Step 2: Get Patch Synthesis result
-		cout<<"Generating shadow hole and legal mask..";
+		COutput("Generating shadow hole and legal mask..", CC_DARKGREEN);
 		cvi* holeMask = cvci81(srcImg), *legalMask = cvci81(srcImg);
 		GenerateMaskFromParam(param, holeMask, legalMask, cfg.shdwDegreeThres_maskGenerate, cfg.shdwBoundDilateTimes_maskGenerate);
 		if(cfg.holeMaskImgPostfix != "") cvsi(cfg.srcDir + cfg.resSubdir + imgPrefix + cfg.holeMaskImgPostfix, holeMask);
 		if(cfg.legalMaskImgPostfix != "") cvsi(cfg.srcDir + cfg.resSubdir + imgPrefix + cfg.legalMaskImgPostfix, legalMask);
-		cout<<"\rStart step 2: Hole and legal mask got, start synthesis...\n";
+		COutGreen("\rStart step 2: Hole and legal mask got, start synthesis...\n");
 		SynthesisProc sProc;
 		cvi* synRes = cvci(srcImg);
 		if(cfg.gtAsGuidance && freeImg) sProc.Synthesis(srcImg, holeMask, synRes, legalMask, freeImg);
 		else
 		{
-			if(cfg.gtAsGuidance && !freeImg) cout<<"Free image load failed, use naive res as guidance.\n";
+			if(cfg.gtAsGuidance && !freeImg) COutRed("Free image load failed, use naive res as guidance.\n");
 			sProc.Synthesis(srcImg, holeMask, synRes, legalMask, naiveRes);
 		}
 		if(cfg.synResImgPostfix != "") cvsi(cfg.srcDir + cfg.resSubdir + imgPrefix + cfg.synResImgPostfix, synRes);
-		cout<<"\rStep 2: Synthesis result got.\n";
+		COutGreen("\rStep 2: Synthesis result got.\n");
 // 		cvi* synRes = cvlic(m_fileDir + m_ResultDir + imgPrefix + "_syn_res.png");
 // 		cvi* naiveRes = cvlic(m_fileDir + m_ResultDir + imgPrefix + "_naive_res.png");
 // 		cvi* holeMask = NULL; cvi* param = NULL; cvi* legalMask = NULL;
 
 		//Step 3: Local color correction
-		cout<<"Start step 3: local color correction..";
+		COutput("Start step 3: local color correction..", CC_DARKGREEN);
 		cvi* corRes = LocalColorCorrection(naiveRes, synRes, holeMask);
 		if(cfg.corResImgPostfix != "") cvsi(cfg.srcDir + cfg.resSubdir + imgPrefix + cfg.corResImgPostfix, corRes);
-		cout<<"\r                                       \rStep 3: Correction result got.\n";
+		COutGreen("\r                                       \rStep 3: Correction result got.\n");
 
 		cvri(srcImg); cvri(param); cvri(naiveRes); cvri(synRes); cvri(freeImg); //cvri(localRes);
 		cvri(holeMask); cvri(legalMask); cvri(corRes);

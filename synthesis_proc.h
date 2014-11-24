@@ -49,6 +49,7 @@ struct SynthesisCfg
 	//debug
 	bool debugImgsOutput;
 	string debugImgsOutputDir;
+	bool cvShowResult;
 
 	//abandon
 	int pymLevels; // 5
