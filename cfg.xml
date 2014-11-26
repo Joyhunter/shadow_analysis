@@ -2,18 +2,72 @@
 <root name="root">
 	<srcDir val = "..//dataset//gpmAnalysis//3//" />
 
-	<focusedImgs num = "2" >
+	<focusedImgs num = "1" >
 		<focuedPrefix val = "004" />
 		<focuedPrefix val = "105" />
 	</focusedImgs>
 
+	<gpmStep>
+		<enabled val = "1" />
+		<subDir val = "" />
+	</gpmStep>
+
+	<voteStep>
+		<enabled val = "1" />
+		<subDir val = "01_PredictParam//" />
+	</voteStep>
+
 	<detectionStep>
 		<enabled val = "1" />
 		<subDir val = "02_VoteDetection//" />
+		
+		<mrfSmooth>
+			<enabled val = "1" />
+			<nLabels val = "32" />
+			<nChannels val = "1" />
+			<smoothTerm>
+				<colorSigma val = "0.2" />
+				<weight val = "2" />
+			</smoothTerm>
+		</mrfSmooth>
+		
+		<analysis>
+			<hist>
+				<histN val = "64" />
+				<histMinV val = "0.1" />
+				<adjacentRatio val = "1.0" />
+			</hist>
+			<cellFilter>
+				<shadowDegreeThres val = "200" />
+				<pixelNumThres val = "0.2" />
+				<boxRatioThres val = "0.2" />
+			</cellFilter>
+			<cellAdjacentRadiusRatio val = "0.02" />
+			<regionPredictor enabled = "0" val = "..//" />
+			<TODOtrainingToPredict />
+			<mrf>
+				<regionAlphaEstimate higherVal = "0.25" />
+				<boundaryWidth val = "-1" />
+				<nLabels val = "32" />
+				<dataTerm guidInitMaxRatio = "1.2" ratioSigma = "0.05" whiteWeight = "10"/>
+				<smoothTerm colorSigma = "0.2" weight = "10" />
+			</mrf>
+		</analysis>
+		
+		<matting>
+			<shdwDegreeThres val = "0.8" />
+			<maskErodeTimes val = "5" />
+			<maskDilateTimes val = "15" />
+			<TODOrefineMattingRemoveAvg />
+		</matting>
+
+		<debug>
+			<debugResult output = "1" dir = "result//" />
+		</debug>
 	</detectionStep>
 
 	<recoveryStep>
-		<enabled val = "1" />
+		<enabled val = "0" />
 		<subDir val = "03_VoteRecovery//" />
 		
 		<naiveRecovery>
@@ -52,8 +106,8 @@
 					<scaleFactor val = "0.5" />
 				</randomSearch>
 			</gpm>
-			<rmPunish val1 = "1.0" val2 = "0.3" />
-			<guidanceWeight val1 = "1000.0" val2 = "0.1" />
+			<rmPunish val1 = "1.0" val2 = "1.0" />
+			<guidanceWeight val1 = "1000.0" val2 = "1000" />
 			<gtAsGuidance val = "0" />
 			<poissonAlpha val = "1000" />
 			<resPostfix val = "_syn_res.png" />
@@ -71,6 +125,7 @@
 				<resizeRatio val = "0.5" />
 			</pyramid>
 			<resPostfix val = "_cor_res.png" />
+			<TODOhandleMaterialnotExist />
 		</localColorCorrection> 
 
 		<patchRadius_old val = "3" />

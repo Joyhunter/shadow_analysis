@@ -18,19 +18,21 @@ int _tmain(int argc, _TCHAR* argv[])
 // 	//gProc.VoteAnalysis();
 // 	return 0;
 
-// 	DetectionProc dProc;
-// 	dProc.SetFileDir("..//dataset//gpmAnalysis//5//");
-// 	dProc.DetectCastShadow();
-// 	return 0;
+	DetectionProc dProc;
+	dProc.LoadCfg(cfgFile);
+	if(dProc.cfg.stepEnabled) dProc.DetectCastShadow();
 
 	RecoverProc rProc;
 	rProc.LoadCfg(cfgFile);
-	//rProc.SetFileDir("..//dataset//gpmAnalysis//3//");
 	if(rProc.cfg.stepEnabled) rProc.Recover3();
+
 
 // 	SynthesisProc sProc;
 // 	sProc.Test();
 
+	//dProc.SetFileDir("..//dataset//gpmAnalysis//5//");
+	// 	return 0;
+	//rProc.SetFileDir("..//dataset//gpmAnalysis//3//");
 
 
 	return 0;

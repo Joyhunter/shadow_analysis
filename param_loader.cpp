@@ -72,7 +72,7 @@ void ParamLoader::ShowParamInDir(string paramDir, string imgPrefix, cvi* param)
 {
 	doF(k, 3)
 	{
-		cvi* temp = VislzCviCh(param->width, param->height, param, k, ((k==0)?0:-100), ((k==0)?1:100));
+		cvi* temp = VislzCviCh(param->width, param->height, param, k, ((k==0)?0:-20), ((k==0)?1:20));
 		cvsi(paramDir + imgPrefix + "_" + toStr(k) + ((k==0)?"_gain":"_bais") + ".png", temp); cvri(temp);
 	}
 }
