@@ -9,14 +9,20 @@ int _tmain(int argc, _TCHAR* argv[])
 {
 
 	string cfgFile = "cfg.xml";
-	//LoadCfgFile();
 
-// 	GPMAnalysisProc gProc;
-// 	//gProc.SetFileDir("..//dataset//gpmAnalysis//2//");
-// 	gProc.SetFileDir(".//");
-// 	gProc.ShdwAnlysis();
-// 	//gProc.VoteAnalysis();
-// 	return 0;
+	ShdwAnlysisProc sProc;
+	sProc.LoadCfg(cfgFile);
+	if(sProc.cfg.stepEnabled) sProc.GenerateGT();
+
+	GPMAnalysisProc gProc;
+	gProc.LoadCfg(cfgFile);
+	if(gProc.cfg.stepEnabled) gProc.RunGPMForAllImages();
+	if(gProc.vcfg.stepEnabled)
+	{
+		if(gProc.vcfg.isTraining) gProc.TrainVoteRTrees();
+		if(gProc.vcfg.useNaive) gProc.RunNaiveVoting();
+		if(gProc.vcfg.usePrediction) gProc.PredictUseRTrees();
+	}
 
 	DetectionProc dProc;
 	dProc.LoadCfg(cfgFile);
@@ -26,6 +32,13 @@ int _tmain(int argc, _TCHAR* argv[])
 	rProc.LoadCfg(cfgFile);
 	if(rProc.cfg.stepEnabled) rProc.Recover3();
 
+
+	// 	GPMAnalysisProc gProc;
+	// 	//gProc.SetFileDir("..//dataset//gpmAnalysis//2//");
+	// 	gProc.SetFileDir(".//");
+	// 	gProc.ShdwAnlysis();
+	// 	//gProc.VoteAnalysis();
+	// 	return 0;
 
 // 	SynthesisProc sProc;
 // 	sProc.Test();

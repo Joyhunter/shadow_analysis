@@ -1169,7 +1169,14 @@ void DenseCorrSyn::LevelUpTo(int newWidth, int newHeight)
 		float len = pow(dx*dx+dy*dy, 0.5f);
 		i3 = i3 + sin(angle - oldV.r) * oldV.s * len;
 		j3 = j3 + cos(angle - oldV.r) * oldV.s * len;
-		newV.x = floor(i3); newV.y = floor(j3);
+		if(!SynthesisProc::cfg.scaleRotateEnabled)
+		{
+			newV.x = floor(i3); newV.y = floor(j3);
+		}
+		else
+		{
+			newV.x = i3 - 0.5f; newV.y = j3 - 0.5f;
+		}
 	}
 
 	m_values = newValues;

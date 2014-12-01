@@ -2,23 +2,84 @@
 <root name="root">
 	<srcDir val = "..//dataset//gpmAnalysis//3//" />
 
-	<focusedImgs num = "1" >
-		<focuedPrefix val = "004" />
+	<focusedImgs num = "-1" >
+		<focuedPrefix val = "012" />
 		<focuedPrefix val = "105" />
 	</focusedImgs>
 
 	<gpmStep>
-		<enabled val = "1" />
-		<subDir val = "" />
+		<enabled val = "0" />
+		<subDir val = "00_Corr//" />
+		<patchSize val = "5" />
+		<srcResizeRatio val = "0.5" />
+		<pym resizeRatio = "0.5" minWidth = "75" />
+		<grid gridSizeRatio = "0.26" />
+		<coreN val = "6" />
+		<gpm>
+			<itrlN val = "5" />
+			<flipEnabled val = "1" />
+			<scaleRotate enabled = "1">
+				<scale min = "0.67" max = "1.5" />
+				<rotate min = "-1.05" max = "1.05" />
+			</scaleRotate>
+			<gainBias enabled = "1">
+				<gain min1 = "0.26" min2 = "1" min3 = "1" max1 = "0.87" max2 = "1" max3 = "1" />
+				<bias min1 = "0" min2 = "-6.48" min3 = "-5.5" max1 = "0" max2 = "8.47" max3 = "19.5" />
+			</gainBias>
+			<randomSearch enabled = "1">
+				<radius val = "0.6" />
+				<minRadius val = "0.01" />
+				<scaleFactor val = "0.5" />
+			</randomSearch>
+		</gpm>
+		<runGPM val = "0" />
+		<showGPM val = "1" >
+			<distThres val = "30" />
+		</showGPM>
 	</gpmStep>
+
+	<gtStep>
+		<enabled val = "0" />
+		<maskSubDir val = "00_Mask//" />
+		<resSubDir val = "00_GT//" />
+		<resizeRatio val = "0.5" />
+		<patchRadius val = "7" />
+	</gtStep>
 
 	<voteStep>
 		<enabled val = "1" />
-		<subDir val = "01_PredictParam//" />
+		<subDir val = "01_VoteParam//" />
+
+		<useNaive val = "0" />
+		<naive>
+			<patchSize val = "5" />
+			<distThres val = "20" />
+			<useTopN val = "0" />
+		</naive>
+
+		<training>
+			<enabled val = "1" />
+			<rt>
+				<matchNPerPatch val = "12" />
+				<sampleStep val = "4" />
+				<max_depth val = "10" />
+				<min_sample_count val = "5" />
+				<reggression_accurancy val = "0" />
+				<max_categories val = "15" />
+				<nactive_vars val = "4" />
+				<max_tree_N val = "100" />
+				<forest_accurancy val = "0.01" />
+				<forest_accurancyAB val = "1" />
+			</rt>
+			<model fileDir = "..//rt.xml" />
+		</training>
+
+		<usePrediction val = "1" />
+
 	</voteStep>
 
 	<detectionStep>
-		<enabled val = "1" />
+		<enabled val = "0" />
 		<subDir val = "02_VoteDetection//" />
 		
 		<mrfSmooth>
@@ -56,8 +117,8 @@
 		
 		<matting>
 			<shdwDegreeThres val = "0.8" />
-			<maskErodeTimes val = "5" />
-			<maskDilateTimes val = "15" />
+			<maskErodeTimes val = "15" />
+			<maskDilateTimes val = "10" />
 			<TODOrefineMattingRemoveAvg />
 		</matting>
 

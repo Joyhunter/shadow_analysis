@@ -71,29 +71,102 @@ struct GPMStatis
 	}
 };
 
+//----------------------- Cfg of Grid-GPM proc --------------------------
+struct GPMCfg
+{
+	//enabled
+	bool stepEnabled;
+
+	//directory
+	string srcDir;
+	string resSubdir;
+
+	//focused files
+	vector<string> focusedPrefix;
+
+	//Step 1: Run Grid GPM
+	int patchSize_gpm;
+	int nItrl_gpm;
+	int src_colorMode_gpm;
+	float src_resizeRatio_gpm;
+	float gridSizeRatio_gpm;
+	float pymResizeRatio_gpm;
+	float pymMinWidth_gpm;
+	GPMRange range_gpm;
+	bool runGPM, showGPM;
+	float distThres_showGPM;
+
+	void Init();
+	void InitFromXML(string cfgFile);
+};
+
+struct VoteCfg
+{
+	bool stepEnabled;
+
+	string srcDir;
+	string corrDir;
+	string resSubdir;
+
+	//focused files
+	vector<string> focusedPrefix;
+
+	//naive vote
+	bool useNaive;
+	int patchSize;
+	float distThres;
+	int useTopN;
+
+	//training
+	bool isTraining;
+	string modelFile;
+	RTparam rtParam;
+	string gtSubDir;
+
+	bool usePrediction;
+
+	void Init();
+	void InitFromXML(string cfgFile);
+};
+
+//------------------------------------------------------------------------
+
 class GPMAnalysisProc
 {
+
 public:
+	
 	GPMAnalysisProc(void);
 	~GPMAnalysisProc(void);
 
-	void SetFileDir(string fileDir);
+	void LoadCfg(string cfgFile);
 
-	//interface 1: Run Grid GPM for all images, and save file to corr
+	//Run gpm interface: Run Grid GPM for all images, and save file to corr
 	void RunGPMForAllImages();
 
-private:
+	//Naive voting
+	void RunNaiveVoting();
 
-	//Read cfg to GPMParam param
-	void ReadParam(string cfgFile = "gpm.cfg");
+	//Predict using r trees
+	void PredictUseRTrees();
+	
+	//vote learning
+	void TrainVoteRTrees();
+
+	static GPMCfg cfg;
+	static VoteCfg vcfg;
+
+private:
 
 	//Get corr file save dir of imgName
 	string GetCorrFileDir(string imgName);
 
 
-
+	//abandoned
+	void InitRTParam();
 public:
 
+	void SetFileDir(string fileDir);
 
 	void ShdwAnlysis();
 
@@ -104,39 +177,31 @@ public:
 
 private:
 
+	//Read cfg to GPMParam param
+	void ReadParam(string cfgFile = "gpm.cfg");
 
 	void GetStatistics(ofstream& fout);
 
-	void VoteInitMask();
 	double OptimizeGbVLab(Patch& srcPatch, Patch& dstPatch, vector<double>& gbV, double& dist);
 	cvS GetVoteError();
 
-
 	void test();
-	
-	//vote learning
-	void TrainVoteRTrees();
-	void PredictUseRTrees();
-	void InitRTParam();
-
 
 	string GetShadowSegDir(string imgName);
 	string GetMaterialSegDir(string imgName);
 
 private:
 
-	string m_fileDir;
+	//string m_fileDir;
 	vector<string> m_imgNames;
 
 	//param
-	GPMParam param;
+	//GPMParam param;
 
-	string rangeDir;
+	//string rangeDir;
 	string parVoteDir;
 	string parGTDir;
 
-	//rt param
-	RTparam rtParam;
-	string parPredictDir;
+	//string parPredictDir;
 };
 
