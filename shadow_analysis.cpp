@@ -1,5 +1,6 @@
 #include "StdAfx.h"
 #include "shadow_analysis.h"
+#include "param_loader.h"
 
 //---------------------- ShdwImgInfo ----------------------------
 
@@ -674,4 +675,104 @@ void ShdwAnlysisProc::SaveVector(int width, int height, vector<double>& vs, int 
 		}
 	}
 	fout.close();
+}
+
+//---------------------------------------------------------------------------------
+
+void GTCfg::Init()
+{
+	stepEnabled = true;
+
+	//directory
+	srcDir = ".//";
+	maskSubDir = "00_Mask//";
+	resSubDir = "00_GT//";
+
+	//param
+	resizeRatio = 0.5f;
+	patchRadius = 7;
+}
+
+void GTCfg::InitFromXML(string cfgFile)
+{
+	tixml::XMLDoc doc;
+	if(!doc.Load(cfgFile.c_str())){
+		cout<<cfgFile<<" is missing. exit!\n";
+		return;
+	}
+
+	stepEnabled = (doc.get<int>("gtStep.enabled.@val", 0) == 1);
+
+	//directory
+	srcDir = doc.get<string>("srcDir.@val", 0);
+	maskSubDir = doc.get<string>("gtStep.maskSubDir.@val", 0);
+	resSubDir = doc.get<string>("gtStep.resSubDir.@val", 0);
+
+	//param
+	resizeRatio = doc.get<float>("gtStep.resizeRatio.@val", 0);
+	patchRadius = doc.get<int>("gtStep.patchRadius.@val", 0);
+}
+
+GTCfg ShdwAnlysisProc::cfg;
+
+void ShdwAnlysisProc::LoadCfg(string cfgFile)
+{
+	cfg.InitFromXML(cfgFile);
+}
+
+void ShdwAnlysisProc::GenerateGT()
+{
+	COutYel("-- GT --\n");
+	wMkDir(cfg.srcDir + cfg.resSubDir);
+	wGetDirFiles(cfg.srcDir + "*.png", m_imgNames);
+
+	LABGainMetric metric4;
+	Metric* metric = &metric4;
+
+	doFv(i, m_imgNames)
+	{
+		string fileName = m_imgNames[i];
+		string imgPrefix = m_imgNames[i].substr(0, m_imgNames[i].size() - 4);
+		if(imgPrefix.size() >= 2 && imgPrefix.substr(imgPrefix.size()-2, 2) == "_n") continue;
+		COutTeal("Processing " + imgPrefix + ".png..\n");
+
+		string imgShdwDir = cfg.srcDir + imgPrefix + ".png";
+		string imgUnShdwDir = cfg.srcDir + imgPrefix + "_n.png";
+		string imgShdwMaskDir = cfg.srcDir + cfg.maskSubDir + imgPrefix + "s.png";
+
+		cvi* imgShdw = cvlic(imgShdwDir);
+		cvi* imgNonShdw = cvlic(imgUnShdwDir);
+		cvi* imgShdwMask = cvlig(imgShdwMaskDir);
+		if(!imgShdw || !imgNonShdw)
+		{
+			COutRed("GT image or GT mask is missing!\n");
+			cvri(imgShdw); cvri(imgNonShdw); cvri(imgShdwMask); 
+			continue;
+		}
+		if(!imgShdwMask)
+		{
+			imgShdwMask = cvci81(imgShdw);
+			doFcvi(imgShdwMask, i, j) cvs20(imgShdwMask, i, j, 255);
+		}
+
+		cvi* i1 = cvci83(_i (imgShdw->width * cfg.resizeRatio), _i (imgShdw->height * cfg.resizeRatio));
+		cvi* i2 = cvci83(i1), *i3 = cvci81(i1);
+		cvResize(imgShdw, i1); cvResize(imgNonShdw, i2); cvResize(imgShdwMask, i3);
+
+		vector<double> gbVs(i1->width * i1->height * 6);
+
+		metric->AnalysisShadow(i1, i2, i3, gbVs, histN, cfg.patchRadius);
+
+		cvi* param = cvci323(i1);
+		doFcvi(param, i, j)
+		{
+			int idx = 6*(i * param->width + j);
+			cvs2(param, i, j, cvs(gbVs[idx], gbVs[idx+3], gbVs[idx+5]));
+		}
+
+		ParamLoader::SaveParamToDir(cfg.srcDir + cfg.resSubDir, imgPrefix, param);
+		ParamLoader::ShowParamInDir(cfg.srcDir + cfg.resSubDir, imgPrefix, param);
+
+		cvri(imgShdw); cvri(imgNonShdw); cvri(imgShdwMask); cvri(i1); cvri(i2); cvri(i3); cvri(param);
+	}
 }

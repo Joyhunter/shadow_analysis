@@ -2,8 +2,8 @@
 <root name="root">
 	<srcDir val = "..//dataset//gpmAnalysis//3//" />
 
-	<focusedImgs num = "-1" >
-		<focuedPrefix val = "012" />
+	<focusedImgs num = "1" >
+		<focuedPrefix val = "201" />
 		<focuedPrefix val = "105" />
 	</focusedImgs>
 
@@ -47,7 +47,7 @@
 	</gtStep>
 
 	<voteStep>
-		<enabled val = "1" />
+		<enabled val = "0" />
 		<subDir val = "01_VoteParam//" />
 
 		<useNaive val = "0" />
@@ -58,7 +58,7 @@
 		</naive>
 
 		<training>
-			<enabled val = "1" />
+			<enabled val = "0" />
 			<rt>
 				<matchNPerPatch val = "12" />
 				<sampleStep val = "4" />
@@ -84,11 +84,11 @@
 		
 		<mrfSmooth>
 			<enabled val = "1" />
-			<nLabels val = "32" />
+			<nLabels val = "64" />
 			<nChannels val = "1" />
 			<smoothTerm>
 				<colorSigma val = "0.2" />
-				<weight val = "2" />
+				<weight val = "20" />
 			</smoothTerm>
 		</mrfSmooth>
 		
@@ -109,17 +109,18 @@
 			<mrf>
 				<regionAlphaEstimate higherVal = "0.25" />
 				<boundaryWidth val = "-1" />
-				<nLabels val = "32" />
+				<nLabels val = "64" />
 				<dataTerm guidInitMaxRatio = "1.2" ratioSigma = "0.05" whiteWeight = "10"/>
 				<smoothTerm colorSigma = "0.2" weight = "10" />
 			</mrf>
 		</analysis>
 		
 		<matting>
+			<smoothRadius val = "50" />
 			<shdwDegreeThres val = "0.8" />
-			<maskErodeTimes val = "15" />
-			<maskDilateTimes val = "10" />
-			<TODOrefineMattingRemoveAvg />
+			<maskErodeTimes val = "35" />
+			<maskDilateTimes val = "50" />
+			<useAvg val = "0" />
 		</matting>
 
 		<debug>
@@ -128,7 +129,7 @@
 	</detectionStep>
 
 	<recoveryStep>
-		<enabled val = "0" />
+		<enabled val = "1" />
 		<subDir val = "03_VoteRecovery//" />
 		
 		<naiveRecovery>
@@ -138,7 +139,7 @@
 
 		<maskGenerate>
 			<shdwDegreeThres val = "0.8" />
-			<shdwBoundDilateTimes val = "0.01" />
+			<shdwBoundDilateTimes val = "0.04" />
 			<holeMaskImgPostfix val = "_syn_hole.png" />
 			<legalMaskImgPostfix val = "_syn_legal.png" />
 		</maskGenerate>

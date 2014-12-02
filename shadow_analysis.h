@@ -111,12 +111,38 @@ public:
 		OUT vector<double>& gbVs, int histN = 20, int patchRadius = 7);
 };
 
+struct GTCfg
+{
+	bool stepEnabled;
+	
+	//directory
+	string srcDir;
+	string maskSubDir;
+	string resSubDir;
+
+	//param
+	float resizeRatio;
+	int patchRadius;
+
+	void Init();
+	void InitFromXML(string cfgFile);
+};
+
 class ShdwAnlysisProc
 {
 public:
 	ShdwAnlysisProc(void);
 	~ShdwAnlysisProc(void);
 
+	//new
+	static GTCfg cfg;
+	void LoadCfg(string cfgFile);
+	void GenerateGT();
+
+
+
+
+	//old
 	void AddFileDir(string fileDir);
 
 	void BunchShdwAnalysis();

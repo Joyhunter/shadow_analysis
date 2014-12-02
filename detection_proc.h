@@ -26,9 +26,11 @@ struct DetectionCfg
 	float guidInitMaxRatio_data, ratioSigma_data, whiteWeight_data, colorSigma_smooth, weight_smooth;
 
 	//step 3: matting
+	int smoothRadius_matting;
 	float shdwDegreeThres_matting;
 	int maskErodeTimes_matting;
 	int maskDilateTimes_matting;
+	bool useAvg_matting;
 
 	//debug
 	bool debugImgsOutput;
@@ -37,6 +39,9 @@ struct DetectionCfg
 	void Init();
 	void InitFromXML(string cfgFile);
 };
+
+extern bool operator < (const CvPoint& v1, const CvPoint& v2);
+extern bool operator == (const CvPoint& v1, const CvPoint& v2);
 
 class DetectionProc
 {

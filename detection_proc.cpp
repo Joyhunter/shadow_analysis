@@ -48,9 +48,11 @@ void DetectionCfg::Init()
 	weight_smooth = 10.0f;
 
 	//step 3: matting
+	smoothRadius_matting = 10;
 	shdwDegreeThres_matting = 0.8f;
 	maskErodeTimes_matting = 3;
 	maskDilateTimes_matting = 5;
+	useAvg_matting = false;
 
 	//debug
 	debugImgsOutput = true;
@@ -106,9 +108,11 @@ void DetectionCfg::InitFromXML(string cfgFile)
 	weight_smooth = doc.get<float>("detectionStep.analysis.mrf.smoothTerm.@weight", 0);
 
 	//step 3: matting
+	smoothRadius_matting = doc.get<int>("detectionStep.matting.smoothRadius.@val", 0);
 	shdwDegreeThres_matting = doc.get<float>("detectionStep.matting.shdwDegreeThres.@val", 0);
 	maskErodeTimes_matting = doc.get<int>("detectionStep.matting.maskErodeTimes.@val", 0);
 	maskDilateTimes_matting = doc.get<int>("detectionStep.matting.maskDilateTimes.@val", 0);
+	useAvg_matting = (doc.get<int>("detectionStep.matting.useAvg.@val", 0) == 1);
 
 	//debug
 	debugImgsOutput = (doc.get<int>("detectionStep.debug.debugResult.@output", 0) == 1);
@@ -157,6 +161,10 @@ void DetectionProc::DetectCastShadow()
 		//load source image and param prediction
 		cvi* srcImg = cvlic(cfg.srcDir + imgPrefix + ".png");
 		cvi* param = ParamLoader::LoadParamFromDir(cfg.srcDir + cfg.paramSubdir, imgPrefix);//m_srcDir
+		if(param == 0)
+		{
+			cvri(srcImg); continue;
+		}
 
 		//cast shadow detect
 		cvi* paramNew = DetectCastShadow(srcImg, param);
@@ -209,6 +217,7 @@ cvi* DetectionProc::DetectCastShadow(cvi* srcImg, cvi* param)
 	//step 3: Matting(trick)
 	//cvi* smoothSrc = cvci(srcImg);
 	//cvSmooth(srcImg, smoothSrc, 2, 31, 31);
+	cvSmooth(smoothParam, smoothParam, 1, cfg.smoothRadius_matting, cfg.smoothRadius_matting);
 	smoothParam = MattingSmooth(srcImg, smoothParam, cfg.shdwDegreeThres_matting, 
 		cfg.maskErodeTimes_matting, cfg.maskDilateTimes_matting);
 	if(cfg.debugImgsOutput)
@@ -319,7 +328,7 @@ cvi* DetectionProc::MattingSmooth(cvi* srcImg, cvi* param, float shdwRatio, int 
 			cvs20(shdwMask, i, j, 255);
 			avgShdw += cvg2(param, i, j); cnt++;
 		}
-		else if(cvg20(param, i, j) > 0.98) cvs20(shdwMask2, i, j, 255);
+		else if(cvg20(param, i, j) >= shdwRatio) cvs20(shdwMask2, i, j, 255); //>=0.98
 	}
 	cvErode(shdwMask, shdwMask, 0, erodeTimes);
 	cvErode(shdwMask2, shdwMask2, 0, dilateTimes);
@@ -330,8 +339,8 @@ cvi* DetectionProc::MattingSmooth(cvi* srcImg, cvi* param, float shdwRatio, int 
 	}
 	avgShdw /= cnt; //avgShdw = 0.45;
 
-	cvsi("result//lp_src.png", srcImg);
-	cvsi("result//lp_mask.png", shdwMask);
+	cvsi(cfg.debugImgsOutputDir + "lp_src.png", srcImg);
+	cvsi(cfg.debugImgsOutputDir + "lp_mask.png", shdwMask);
 
 	//local propagation
 	//image_editing::LocalEditpropProc proc;
@@ -343,14 +352,59 @@ cvi* DetectionProc::MattingSmooth(cvi* srcImg, cvi* param, float shdwRatio, int 
 	cvi* back = cvci(srcImg), *fore = cvci(srcImg);
 	proc.RunAlphaMatting(srcImg, shdwMask, back, fore, resMask);
 
-	cvsi("result//lp_res.png", resMask);
+	cvsi(cfg.debugImgsOutputDir + "lp_res.png", resMask);
+
+	//dilate param
+	set<CvPoint> bps;
+	int radius = 1;
+	doFcvi(shdwMask, i, j)
+	{
+		if(cvg20(shdwMask, i, j) == 255) continue;
+		doFs(oi, -radius, radius + 1) doFs(oj, -radius, radius + 1)
+		{
+			if(cvIn(i+oi, j+oj, shdwMask) && cvg20(shdwMask, i+oi, j+oj) == 255) 
+				bps.insert(cvPoint(i, j));
+		}
+	}
+	while(bps.size() > 0)
+	{
+		for(auto p = bps.begin(); p != bps.end(); p++)
+		{
+			int i = p->x, j = p->y;
+			cvS sum = cvs(0, 0, 0);
+			int cnt = 0;
+			doFs(oi, -radius, radius + 1) doFs(oj, -radius, radius + 1)
+			{
+				if(cvIn(i+oi, j+oj, shdwMask) && cvg20(shdwMask, i+oi, j+oj) == 255) 
+				{
+					sum += cvg2(param, i+oi, j+oj); cnt++;
+				}
+			}
+			sum /= cnt;
+			cvs2(param, i, j, sum);
+			cvs20(shdwMask, i, j, 255);
+		}
+		//cvsi(cfg.debugImgsOutputDir + "lp_mask.png", shdwMask); pause;
+		set<CvPoint> bps2;
+		for(auto p = bps.begin(); p != bps.end(); p++)
+		{
+			int i = p->x, j = p->y;
+			doFs(oi, -radius, radius + 1) doFs(oj, -radius, radius + 1)
+			{
+				if(cvIn(i+oi, j+oj, shdwMask) && cvg20(shdwMask, i+oi, j+oj) == 128) 
+					bps2.insert(cvPoint(i+oi, j+oj));
+			}
+		}
+		bps = bps2;
+	}
 
 	//update data
 	doFcvi(resMask, i, j)
 	{
 		auto v = cvg2(param, i, j);
 		auto v2 = cvg20(resMask, i, j) / 255;
-		cvS v3 = avgShdw * v2 + cvs(1, 0, 0) * (1 - v2);
+		cvS v3 = cvg2(param, i, j) * v2 + cvs(1, 0, 0) * (1 - v2);
+		if(cfg.useAvg_matting) v3 = avgShdw * v2 + cvs(1, 0, 0) * (1 - v2);
 		//v.val[0] = v3.val[0];
 		v = v3;
 		if(v.val[0] > 0.999)
